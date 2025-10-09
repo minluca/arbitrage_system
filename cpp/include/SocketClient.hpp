@@ -8,7 +8,7 @@ namespace Socket
     class Client 
     {
     private:
-        int _socket;            // socket id
+        int _socket;            
 
     public:
         Client(const std::string ip, int port);

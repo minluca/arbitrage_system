@@ -19,7 +19,7 @@ double Graph::addOrUpdateEdge(std::string s, std::string d, double p,
                               const std::string& exch,
                               const std::string& sym)
 {
-    // validazione prezzo base
+    
     if (!std::isfinite(p) || p <= 0.0) {
         std::cerr << "[warn] addOrUpdateEdge: prezzo non valido (p=" << p
                   << ") per " << s << "->" << d << " exch=" << exch << " sym=" << sym << "\n";
@@ -34,7 +34,7 @@ double Graph::addOrUpdateEdge(std::string s, std::string d, double p,
         }
     } else {
 
-        // Tier 1: Range estremo (garbage data) - RIFIUTA
+        
         if (p < 1e-8 || p > 1e8) {
             std::cerr << "[error] addOrUpdateEdge: prezzo ESTREMO fuori range (p=" << p
                       << ") per " << s << "->" << d << " - RIFIUTATO\n";
@@ -53,7 +53,7 @@ double Graph::addOrUpdateEdge(std::string s, std::string d, double p,
         }
         
         if (isStablePair) {
-            // Stablecoin pair: prezzo anomalo se fuori 0.99-1.01
+            
             if (p < 0.99 || p > 1.01) {
                 std::cerr << "[warn] addOrUpdateEdge: coppia stablecoin con price anomalo (p=" << p
                           << ") per " << s << "->" << d << " - potenziale errore dati\n";
@@ -71,7 +71,7 @@ double Graph::addOrUpdateEdge(std::string s, std::string d, double p,
         return std::numeric_limits<double>::quiet_NaN();
     }
 
-    // aggiorna se già esiste
+    
     for (auto& e : edges) {
         if (e.source == u && e.destination == v) {
             e.weight = w;
@@ -82,7 +82,7 @@ double Graph::addOrUpdateEdge(std::string s, std::string d, double p,
         }
     }
 
-    // altrimenti inserisci
+    
     Edge e{u, v, w, p, exch, sym};
     edges.push_back(e);
     
@@ -91,11 +91,11 @@ double Graph::addOrUpdateEdge(std::string s, std::string d, double p,
         double w_inv = -std::log(p_inv);
         
         if (std::isfinite(w_inv)) {
-            // Cerca se l'arco inverso esiste già
+            
             bool inverseExists = false;
             for (auto& edge : edges) {
                 if (edge.source == v && edge.destination == u) {
-                    // Aggiorna arco inverso esistente
+                    
                     edge.weight = w_inv;
                     edge.price = p_inv;
                     if (!exch.empty()) edge.exchange = exch;
@@ -105,7 +105,7 @@ double Graph::addOrUpdateEdge(std::string s, std::string d, double p,
                 }
             }
             
-            // Se non esiste, crealo
+            
             if (!inverseExists) {
                 Edge e_inv{v, u, w_inv, p_inv, exch, sym + "_INV"};
                 edges.push_back(e_inv);
@@ -216,7 +216,7 @@ std::string Graph::canonicalSignature(const std::vector<int>& cycle, double prof
     auto canon = canonicalizeCycle(cycle);
     std::ostringstream oss;
 
-    // PATCH: aumento precisione da 4 → 8 per distinguere cicli simili
+    
     oss << std::fixed << std::setprecision(8) << profit << "|";
 
     for (size_t i = 0; i < canon.size(); ++i) {
@@ -239,7 +239,7 @@ void Graph::findArbitrage() {
 
     using clock_wall = std::chrono::system_clock;
 
-    // ========== WARM-UP (OPZIONALE - RIDUCI O RIMUOVI) ==========
+    
     static bool warmupInitialized = false;
     static std::time_t startEpoch = 0;
     static std::time_t lastWarnedSec = -1;
@@ -261,14 +261,14 @@ void Graph::findArbitrage() {
         return;
     }
 
-    // ========== STATISTICHE PER SECONDO (LOGGING LEGGERO) ==========
+    
     static std::time_t lastSecond = 0;
     static int foundThisSecond = 0;
 
     std::time_t secNow = clock_wall::to_time_t(clock_wall::now());
     if (lastSecond == 0) lastSecond = secNow;
     
-    // Stampa solo quando cambia secondo (non rallenta il loop)
+    
     if (secNow != lastSecond) {
         if (foundThisSecond == 0) {
             std::tm t = *std::localtime(&lastSecond);
@@ -285,24 +285,24 @@ void Graph::findArbitrage() {
         lastSecond = secNow;
     }
 
-    // ========== COSTANTI BELLMAN-FORD ==========
+    
     static constexpr double RELAX_EPS = 1e-6;
     static constexpr double PROFIT_MIN_LOCAL = 1.000001;
     static constexpr double PROFIT_MAX_LOCAL = 10.0;
 
-    // ========== BELLMAN-FORD DA OGNI NODO ==========
+    
     for (int start = 0; start < V; ++start) {
         std::vector<double> dist(V, std::numeric_limits<double>::infinity());
         std::vector<int> parent(V, -1);
         std::vector<int> parentEdge(V, -1);
         dist[start] = 0.0;
 
-        // ===== FASE 1: RELAXATION (V-1 iterazioni) =====
+        
         for (int i = 0; i < V - 1; ++i) {
             for (int ei = 0; ei < (int)edges.size(); ++ei) {
                 const auto& e = edges[ei];
                 
-                // controlla che dist[source] sia finito
+                
                 if (dist[e.source] != std::numeric_limits<double>::infinity() &&
                     dist[e.source] + e.weight < dist[e.destination]) {
                     dist[e.destination] = dist[e.source] + e.weight;
@@ -312,21 +312,21 @@ void Graph::findArbitrage() {
             }
         }
 
-        // ===== FASE 2: DETECTION CICLI NEGATIVI =====
+        
         for (int ei = 0; ei < (int)edges.size(); ++ei) {
             const auto& e = edges[ei];
             
-            // controlla che dist[source] sia finito
+            
             if (dist[e.source] != std::numeric_limits<double>::infinity() &&
                 dist[e.source] + e.weight < dist[e.destination] - RELAX_EPS) {
                 
-                // Trova un nodo nel ciclo (garantito dopo V iterazioni)
+                
                 int v = e.destination;
                 for (int i = 0; i < V; ++i) {
                     v = parent[v];
                 }
 
-                // Ricostruisci il ciclo
+                
                 std::vector<int> cycle;
                 int cur = v;
                 do {
@@ -337,7 +337,7 @@ void Graph::findArbitrage() {
                 if (cycle.empty()) continue;
                 std::reverse(cycle.begin(), cycle.end());
 
-                // Valida che gli archi del ciclo esistano
+                
                 const int n = (int)cycle.size();
                 std::vector<int> cycleEdgeIdx;
                 cycleEdgeIdx.reserve(n);
@@ -358,7 +358,7 @@ void Graph::findArbitrage() {
                 
                 if (!edgesOk) continue;
 
-                // Calcola il profit reale moltiplicando i prezzi
+                
                 double profit = 1.0;
                 for (int pe : cycleEdgeIdx) {
                     double p = edges[pe].price;
@@ -370,17 +370,17 @@ void Graph::findArbitrage() {
                     if (!std::isfinite(profit)) break;
                 }
 
-                // Filtra cicli invalidi
+                
                 if (!std::isfinite(profit)) continue;
                 if (profit <= 0.0 || profit > PROFIT_MAX_LOCAL) continue;
                 if ((int)cycle.size() < MIN_CYCLE_LEN) continue;
                 if (profit < PROFIT_MIN_LOCAL) continue;
 
-                // Deduplicazione con signature canonica
+                
                 std::string sig = canonicalSignature(cycle, profit);
                 if (isDuplicateCycle(sig)) continue;
 
-                // ===== STAMPA ARBITRAGGIO TROVATO =====
+                
                 std::ostringstream path;
                 for (int nidx : cycle) {
                     path << nodeNames[nidx] << " -> ";

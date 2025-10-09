@@ -7,7 +7,6 @@ from config.network import HOST, PORT
 from core.cross_exchange import get_all_cross_exchange_bridges
 
 def _send_message(conn, data: dict):
-    # helper per invio msg json
     msg = json.dumps(data)
     msg_size = str(len(msg)).zfill(16).encode()
     conn.sendall(msg_size)
@@ -25,12 +24,10 @@ async def send_initial_bridges(conn, assets: list):
     logging.info(f"[Python Server] Inviati {len(bridges)} ponti cross-exchange")
 
 async def socket_consumer(q: asyncio.Queue, common_assets: list = None):
-    # insieme asset di default se non specificati
     if common_assets is None:
         from config.settings import COINS
-        common_assets = COINS  # ["BTC", "ETH", "USDT", etc.]
+        common_assets = COINS 
     
-    # prepara il socket server TCP
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     s.bind((HOST, PORT))
@@ -41,12 +38,10 @@ async def socket_consumer(q: asyncio.Queue, common_assets: list = None):
     print(f"[Python Server] Connesso da {addr}")
 
     try:
-        # inizializzazione ponti cross
         await send_initial_bridges(conn, common_assets)
         
-        # update reali
         while True:
-            update = await q.get()   # update = dict {timestamp, symbol, base, quote, price, volume, exchange}
+            update = await q.get()
             
             _send_message(conn, update)
             

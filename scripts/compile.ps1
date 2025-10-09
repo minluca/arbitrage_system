@@ -12,7 +12,7 @@ $ProjectRoot = (Resolve-Path "$PSScriptRoot\..").Path
 $SrcDir = Join-Path $ProjectRoot "cpp\src"
 $IncDir = Join-Path $ProjectRoot "cpp\include"
 $BuildDir = Join-Path $ProjectRoot "cpp\build"
-$Executable = Join-Path $BuildDir "test_client.exe"
+$Executable = Join-Path $BuildDir "arbitrage_detector.exe"
 
 Write-Host "Compilazione progetto Arbitrage System"
 Write-Host "Sorgenti: $SrcDir"

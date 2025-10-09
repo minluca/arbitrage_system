@@ -14,11 +14,11 @@ int main() {
         
         g.findArbitrage();
 
-        // counter++;
-        // if (counter % 1000 == 0) {
-        //     std::cout << "\n[DEBUG] Stampa grafo dopo " << counter << " messaggi" << std::endl;
-        //     g.printGraphSummary(150);
-        // }
+        
+        
+        
+        
+        
     }
 
     return 0;

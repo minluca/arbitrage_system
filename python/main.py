@@ -5,23 +5,18 @@ import sys
 import pandas as pd
 import httpx
 
-# Aggiungi la directory root al PYTHONPATH per permettere import assoluti
-# Questo permette di importare config, python, etc. dalla root del progetto
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-# import moduli
 from data_sources.rest_api import get_binance_symbols, get_okx_symbols, get_initial_binance_prices, get_initial_okx_prices
 from data_sources.ws_stream import stream_binance_ws, stream_okx_ws
 from communication.socket_server import socket_consumer
 from config.settings import OUTPUT_FOLDER, SYMBOLS, COINS
 
-# logging config
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 async def fetch_valid_pairs(client):
-    # ottiene coppie valide
     binance_symbols, okx_symbols = await asyncio.gather(
         get_binance_symbols(client),
         get_okx_symbols(client),
@@ -31,7 +26,6 @@ async def fetch_valid_pairs(client):
     return valid_pairs_binance, valid_pairs_okx
 
 async def run_snapshot(client, valid_pairs_binance, valid_pairs_okx):
-    # crea i due snapshot iniziali
     snapshot_binance, snapshot_okx = await asyncio.gather(
         get_initial_binance_prices(client, valid_pairs_binance),
         get_initial_okx_prices(client, valid_pairs_okx),
@@ -70,13 +64,10 @@ async def main():
     logging.info("Inizio script...")
 
     async with httpx.AsyncClient(timeout=httpx.Timeout(10.0, connect=5.0)) as client:
-        # 1. fetch simboli
         valid_pairs_binance, valid_pairs_okx = await fetch_valid_pairs(client)
 
-        # 2. snapshot iniziale + CSV
         await run_snapshot(client, valid_pairs_binance, valid_pairs_okx)
 
-    # 3. avvio streaming live
     await run_live_stream(valid_pairs_binance, valid_pairs_okx)
 
 if __name__ == "__main__":

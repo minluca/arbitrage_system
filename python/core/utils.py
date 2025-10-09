@@ -5,7 +5,6 @@ from datetime import datetime
 import os
 from config.settings import OUTPUT_FOLDER, COINS
 
-# crea cartella output se non esiste
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
 
@@ -24,4 +23,4 @@ def split_symbol(symbol: str) -> tuple[str, str]:
     for coin in COINS:
         if symbol.endswith(coin):
             return symbol[:-len(coin)], coin
-    return symbol, ""  # fallback se non trova
+    return symbol, ""

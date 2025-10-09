@@ -5,7 +5,7 @@
 #include <vector>
 #include <iostream>
 #include <sstream>
-// lib header only di Lohmann per manipolare JSON
+
 #include "json.hpp"
 using json = nlohmann::json;
 #include <limits>
@@ -20,10 +20,10 @@ using json = nlohmann::json;
 struct Edge {
     int source;
     int destination;
-    double weight;          // -log(price)
-    double price;           // prezzo reale
-    std::string exchange;   // "Binance" / "OKX" / "Cross"
-    std::string symbol;     // coppia o simbolo originale
+    double weight;          
+    double price;           
+    std::string exchange;   
+    std::string symbol;     
 };
 
 class Graph{
@@ -35,14 +35,14 @@ class Graph{
         std::unordered_set<std::string> recentSet;
         static const size_t MAX_CYCLE_CACHE = 100;
 
-        // --- Gestione bucket di arbitraggi analoghi ---
+        
         struct ArbitrageBucket {
             double representativeProfit;
-            std::vector<std::string> cycles;  // sig o path testuale
+            std::vector<std::string> cycles;  
         };
 
         std::vector<ArbitrageBucket> profitBuckets;
-        static constexpr double EPS_BUCKET = 1e-6;  // tolleranza per considerare due profitti identici
+        static constexpr double EPS_BUCKET = 1e-6;  
     public:
         int addNode(std::string name);
         double addOrUpdateEdge(std::string source, std::string destination,
