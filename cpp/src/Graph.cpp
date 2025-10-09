@@ -1,0 +1,436 @@
+#include "Graph.h"
+
+static constexpr double PROFIT_MIN = 1.00005;
+static constexpr int MIN_CYCLE_LEN = 3;
+
+int Graph::addNode(std::string name)
+{
+    if (nodeIds.find(name) == nodeIds.end()) {
+        int id = static_cast<int>(nodeNames.size());
+        nodeIds[name] = id;
+        nodeNames.push_back(name);
+        return id;
+    } else {
+        return nodeIds[name];
+    }
+}
+
+double Graph::addOrUpdateEdge(std::string s, std::string d, double p,
+                              const std::string& exch,
+                              const std::string& sym)
+{
+    // validazione prezzo base
+    if (!std::isfinite(p) || p <= 0.0) {
+        std::cerr << "[warn] addOrUpdateEdge: prezzo non valido (p=" << p
+                  << ") per " << s << "->" << d << " exch=" << exch << " sym=" << sym << "\n";
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+    
+    if (exch == "Cross") {
+        if (std::fabs(p - 1.0) > 1e-9) {
+            std::cerr << "[error] addOrUpdateEdge: ponte cross-exchange con price != 1.0 (p=" << p
+                      << ") per " << s << "->" << d << " - RIFIUTATO\n";
+            return std::numeric_limits<double>::quiet_NaN();
+        }
+    } else {
+
+        // Tier 1: Range estremo (garbage data) - RIFIUTA
+        if (p < 1e-8 || p > 1e8) {
+            std::cerr << "[error] addOrUpdateEdge: prezzo ESTREMO fuori range (p=" << p
+                      << ") per " << s << "->" << d << " - RIFIUTATO\n";
+            return std::numeric_limits<double>::quiet_NaN();
+        }
+                
+        bool isStablePair = false;
+        std::vector<std::string> stables = {"USDT", "USDC", "TUSD"};
+        
+        for (const auto& stable : stables) {
+            if ((s.find(stable) != std::string::npos) && 
+                (d.find(stable) != std::string::npos)) {
+                isStablePair = true;
+                break;
+            }
+        }
+        
+        if (isStablePair) {
+            // Stablecoin pair: prezzo anomalo se fuori 0.99-1.01
+            if (p < 0.99 || p > 1.01) {
+                std::cerr << "[warn] addOrUpdateEdge: coppia stablecoin con price anomalo (p=" << p
+                          << ") per " << s << "->" << d << " - potenziale errore dati\n";
+            }
+        }
+    }
+
+    int u = addNode(s);
+    int v = addNode(d);
+
+    double w = -std::log(p);
+    if (!std::isfinite(w)) {
+        std::cerr << "[warn] addOrUpdateEdge: peso non finito per p=" << p
+                  << " su " << s << "->" << d << "\n";
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+
+    // aggiorna se già esiste
+    for (auto& e : edges) {
+        if (e.source == u && e.destination == v) {
+            e.weight = w;
+            e.price  = p;
+            if (!exch.empty()) e.exchange = exch;
+            if (!sym.empty())  e.symbol   = sym;
+            return w;
+        }
+    }
+
+    // altrimenti inserisci
+    Edge e{u, v, w, p, exch, sym};
+    edges.push_back(e);
+    
+    if (exch != "Cross" && p > 0.0) {
+        double p_inv = 1.0 / p;
+        double w_inv = -std::log(p_inv);
+        
+        if (std::isfinite(w_inv)) {
+            // Cerca se l'arco inverso esiste già
+            bool inverseExists = false;
+            for (auto& edge : edges) {
+                if (edge.source == v && edge.destination == u) {
+                    // Aggiorna arco inverso esistente
+                    edge.weight = w_inv;
+                    edge.price = p_inv;
+                    if (!exch.empty()) edge.exchange = exch;
+                    if (!sym.empty()) edge.symbol = sym + "_INV";
+                    inverseExists = true;
+                    break;
+                }
+            }
+            
+            // Se non esiste, crealo
+            if (!inverseExists) {
+                Edge e_inv{v, u, w_inv, p_inv, exch, sym + "_INV"};
+                edges.push_back(e_inv);
+            }
+        }
+    }
+    
+    return w;
+}
+
+void Graph::printAllEdges() {
+    for (auto& e : edges) {
+        std::cout << nodeNames[e.source] << " -> " << nodeNames[e.destination]
+                  << " ha peso = " << e.weight << std::endl;
+    }
+}
+
+void Graph::processMessage(std::string msg) {
+    try {
+        auto j = json::parse(msg);
+        std::string base = j["base"];
+        std::string quote = j["quote"];
+        std::string exchange = j.value("exchange", "");
+        std::string symbol = j.value("symbol", "");
+        double price = j["price"];
+
+        std::string source = base;
+        std::string destination = quote;
+        
+        if (source.find("_Binance") == std::string::npos && 
+            source.find("_OKX") == std::string::npos &&
+            source.find("_Cross") == std::string::npos) {
+            source += "_" + exchange;
+        }
+        
+        if (destination.find("_Binance") == std::string::npos && 
+            destination.find("_OKX") == std::string::npos &&
+            destination.find("_Cross") == std::string::npos) {
+            destination += "_" + exchange;
+        }
+
+        addOrUpdateEdge(source, destination, price, exchange, symbol);
+        
+    } catch (std::exception& e) {
+        std::cerr << "[Graph] Errore processMessage: " << e.what() << std::endl;
+    }
+}
+
+std::string Graph::makeCycleSignature(const std::vector<int>& cycle, double profit) {
+    std::set<std::string> uniqueNodes;
+    for (int n : cycle) uniqueNodes.insert(nodeNames[n]);
+    std::ostringstream oss;
+    oss << std::fixed << std::setprecision(4) << profit << "|";
+    for (const auto& name : uniqueNodes) oss << name << ",";
+    return oss.str();
+}
+
+bool Graph::isDuplicateCycle(const std::string& sig) {
+    static size_t duplicateCount = 0;
+    static size_t totalCount = 0;
+
+    totalCount++;
+
+    if (recentSet.find(sig) != recentSet.end()) {
+        duplicateCount++;
+        return true;
+    }
+
+    recentCycles.push_back(sig);
+    recentSet.insert(sig);
+
+    if (recentCycles.size() > MAX_CYCLE_CACHE) {
+        recentSet.erase(recentCycles.front());
+        recentCycles.pop_front();
+    }
+
+    return false;
+}
+
+std::vector<int> Graph::canonicalizeCycle(const std::vector<int>& cycle) const {
+    if (cycle.empty()) return cycle;
+    const int n = static_cast<int>(cycle.size());
+
+    auto rotate_min = [&](const std::vector<int>& seq) {
+        int m = 0;
+        for (int i = 1; i < n; ++i)
+            if (nodeNames[seq[i]] < nodeNames[seq[m]]) m = i;
+        std::vector<int> rot(n);
+        for (int i = 0; i < n; ++i) rot[i] = seq[(m + i) % n];
+        return rot;
+    };
+
+    std::vector<int> fwd = rotate_min(cycle);
+    std::vector<int> rev = cycle;
+    std::reverse(rev.begin(), rev.end());
+    rev = rotate_min(rev);
+
+    for (int i = 0; i < n; ++i) {
+        const std::string& a = nodeNames[fwd[i]];
+        const std::string& b = nodeNames[rev[i]];
+        if (a < b) return fwd;
+        if (a > b) return rev;
+    }
+    return fwd;
+}
+
+std::string Graph::canonicalSignature(const std::vector<int>& cycle, double profit) {
+    auto canon = canonicalizeCycle(cycle);
+    std::ostringstream oss;
+
+    // PATCH: aumento precisione da 4 → 8 per distinguere cicli simili
+    oss << std::fixed << std::setprecision(8) << profit << "|";
+
+    for (size_t i = 0; i < canon.size(); ++i) {
+        if (i) oss << "->";
+        oss << nodeNames[canon[i]];
+    }
+    return oss.str();
+}
+
+int Graph::findExistingBucket(double profit) {
+    for (int i = 0; i < (int)profitBuckets.size(); ++i)
+        if (std::fabs(profitBuckets[i].representativeProfit - profit) < EPS_BUCKET)
+            return i;
+    return -1;
+}
+
+void Graph::findArbitrage() {
+    const int V = static_cast<int>(nodeNames.size());
+    if (V == 0) return;
+
+    using clock_wall = std::chrono::system_clock;
+
+    // ========== WARM-UP (OPZIONALE - RIDUCI O RIMUOVI) ==========
+    static bool warmupInitialized = false;
+    static std::time_t startEpoch = 0;
+    static std::time_t lastWarnedSec = -1;
+    const int WARMUP_SECONDS = 3; 
+
+    std::time_t nowEpoch = std::chrono::system_clock::to_time_t(clock_wall::now());
+    if (!warmupInitialized) {
+        warmupInitialized = true;
+        startEpoch = nowEpoch;
+    }
+    if (nowEpoch - startEpoch < WARMUP_SECONDS) {
+        if (nowEpoch != lastWarnedSec) {
+            std::tm tm = *std::localtime(&nowEpoch);
+            std::cout << "[warm-up] Ignoro arbitraggio per altri "
+                      << (WARMUP_SECONDS - (nowEpoch - startEpoch))
+                      << "s @ " << std::put_time(&tm, "%H:%M:%S") << std::endl;
+            lastWarnedSec = nowEpoch;
+        }
+        return;
+    }
+
+    // ========== STATISTICHE PER SECONDO (LOGGING LEGGERO) ==========
+    static std::time_t lastSecond = 0;
+    static int foundThisSecond = 0;
+
+    std::time_t secNow = clock_wall::to_time_t(clock_wall::now());
+    if (lastSecond == 0) lastSecond = secNow;
+    
+    // Stampa solo quando cambia secondo (non rallenta il loop)
+    if (secNow != lastSecond) {
+        if (foundThisSecond == 0) {
+            std::tm t = *std::localtime(&lastSecond);
+            std::cout << "--- Nessun arbitraggio tra "
+                      << std::put_time(&t, "%H:%M:%S") << " e "
+                      << std::put_time(std::localtime(&secNow), "%H:%M:%S")
+                      << " ---\n";
+        } else {
+            std::tm t = *std::localtime(&lastSecond);
+            std::cout << "=== Arbitraggi trovati @ " << std::put_time(&t, "%H:%M:%S")
+                      << " => " << foundThisSecond << " ===\n\n";
+        }
+        foundThisSecond = 0;
+        lastSecond = secNow;
+    }
+
+    // ========== COSTANTI BELLMAN-FORD ==========
+    static constexpr double RELAX_EPS = 1e-6;
+    static constexpr double PROFIT_MIN_LOCAL = 1.000001;
+    static constexpr double PROFIT_MAX_LOCAL = 10.0;
+
+    // ========== BELLMAN-FORD DA OGNI NODO ==========
+    for (int start = 0; start < V; ++start) {
+        std::vector<double> dist(V, std::numeric_limits<double>::infinity());
+        std::vector<int> parent(V, -1);
+        std::vector<int> parentEdge(V, -1);
+        dist[start] = 0.0;
+
+        // ===== FASE 1: RELAXATION (V-1 iterazioni) =====
+        for (int i = 0; i < V - 1; ++i) {
+            for (int ei = 0; ei < (int)edges.size(); ++ei) {
+                const auto& e = edges[ei];
+                
+                // controlla che dist[source] sia finito
+                if (dist[e.source] != std::numeric_limits<double>::infinity() &&
+                    dist[e.source] + e.weight < dist[e.destination]) {
+                    dist[e.destination] = dist[e.source] + e.weight;
+                    parent[e.destination] = e.source;
+                    parentEdge[e.destination] = ei;
+                }
+            }
+        }
+
+        // ===== FASE 2: DETECTION CICLI NEGATIVI =====
+        for (int ei = 0; ei < (int)edges.size(); ++ei) {
+            const auto& e = edges[ei];
+            
+            // controlla che dist[source] sia finito
+            if (dist[e.source] != std::numeric_limits<double>::infinity() &&
+                dist[e.source] + e.weight < dist[e.destination] - RELAX_EPS) {
+                
+                // Trova un nodo nel ciclo (garantito dopo V iterazioni)
+                int v = e.destination;
+                for (int i = 0; i < V; ++i) {
+                    v = parent[v];
+                }
+
+                // Ricostruisci il ciclo
+                std::vector<int> cycle;
+                int cur = v;
+                do {
+                    cycle.push_back(cur);
+                    cur = parent[cur];
+                } while (cur != v && cur != -1);
+                
+                if (cycle.empty()) continue;
+                std::reverse(cycle.begin(), cycle.end());
+
+                // Valida che gli archi del ciclo esistano
+                const int n = (int)cycle.size();
+                std::vector<int> cycleEdgeIdx;
+                cycleEdgeIdx.reserve(n);
+                bool edgesOk = true;
+                
+                for (int i = 0; i < n; ++i) {
+                    int toNode = cycle[(i + 1) % n];
+                    int pe = parentEdge[toNode];
+                    
+                    if (pe < 0 || 
+                        edges[pe].source != cycle[i] || 
+                        edges[pe].destination != toNode) {
+                        edgesOk = false;
+                        break;
+                    }
+                    cycleEdgeIdx.push_back(pe);
+                }
+                
+                if (!edgesOk) continue;
+
+                // Calcola il profit reale moltiplicando i prezzi
+                double profit = 1.0;
+                for (int pe : cycleEdgeIdx) {
+                    double p = edges[pe].price;
+                    if (!std::isfinite(p) || p <= 0.0) {
+                        profit = std::numeric_limits<double>::quiet_NaN();
+                        break;
+                    }
+                    profit *= p;
+                    if (!std::isfinite(profit)) break;
+                }
+
+                // Filtra cicli invalidi
+                if (!std::isfinite(profit)) continue;
+                if (profit <= 0.0 || profit > PROFIT_MAX_LOCAL) continue;
+                if ((int)cycle.size() < MIN_CYCLE_LEN) continue;
+                if (profit < PROFIT_MIN_LOCAL) continue;
+
+                // Deduplicazione con signature canonica
+                std::string sig = canonicalSignature(cycle, profit);
+                if (isDuplicateCycle(sig)) continue;
+
+                // ===== STAMPA ARBITRAGGIO TROVATO =====
+                std::ostringstream path;
+                for (int nidx : cycle) {
+                    path << nodeNames[nidx] << " -> ";
+                }
+                path << nodeNames[cycle.front()];
+
+                std::time_t ts = clock_wall::to_time_t(clock_wall::now());
+                std::tm ts_tm = *std::localtime(&ts);
+                
+                std::ostringstream pss;
+                pss << std::fixed << std::setprecision(10) << profit;
+
+                std::cout << "[" << std::put_time(&ts_tm, "%Y-%m-%d %H:%M:%S") << "] "
+                          << "[!] Arbitraggio trovato! Profit = " << pss.str()
+                          << "x | Percorso: " << path.str() << "\n";
+
+                foundThisSecond++;
+            }
+        }
+    }
+}
+
+void Graph::printGraphSummary(int maxEdgesToShow) {
+    std::cout << "\n=== STATO ATTUALE DEL GRAFO ===\n";
+    std::cout << "Nodi totali: " << nodeNames.size()
+              << "\nArchi totali: " << edges.size() << std::endl;
+
+    int countBinance = 0, countOKX = 0, countCross = 0;
+    for (const auto& e : edges) {
+        std::string src = nodeNames[e.source];
+        std::string dst = nodeNames[e.destination];
+        if (src.find("Cross") != std::string::npos || dst.find("Cross") != std::string::npos)
+            countCross++;
+        else if (src.find("OKX") != std::string::npos || dst.find("OKX") != std::string::npos)
+            countOKX++;
+        else if (src.find("Binance") != std::string::npos || dst.find("Binance") != std::string::npos)
+            countBinance++;
+    }
+
+    std::cout << "  Archi Binance: " << countBinance
+              << "\n  Archi OKX:     " << countOKX
+              << "\n  Archi Cross:   " << countCross << std::endl;
+
+    std::cout << "\n--- Elenco (max " << maxEdgesToShow << ") ---\n";
+    int shown = 0;
+    for (const auto& e : edges) {
+        std::cout << nodeNames[e.source] << " -> " << nodeNames[e.destination]
+                  << " | weight=" << e.weight
+                  << " | price=" << std::exp(-e.weight) << std::endl;
+        if (++shown >= maxEdgesToShow) break;
+    }
+    std::cout << "===============================\n";
+}

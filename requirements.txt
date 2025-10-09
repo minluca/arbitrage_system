@@ -1,0 +1,3 @@
+httpx>=0.24,<1.0
+websockets>=11,<13
+pandas>=2.0,<3.0
