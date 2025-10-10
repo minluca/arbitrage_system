@@ -13,7 +13,7 @@ from data_sources.binance_exchange import BinanceExchange
 from data_sources.okx_exchange import OKXExchange
 from data_sources.bybit_exchange import BybitExchange
 from communication.socket_server import socket_consumer
-from config.settings import OUTPUT_FOLDER, SYMBOLS, COINS
+from config.settings import SNAPSHOTS_DIR, SYMBOLS, COINS
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -37,17 +37,17 @@ async def run_snapshot(client, exchanges, valid_pairs_binance, valid_pairs_okx, 
 
     if snapshot_binance:
         df_binance = pd.DataFrame(snapshot_binance)
-        df_binance.to_csv(os.path.join(OUTPUT_FOLDER, 'Initial_Snapshot_Binance.csv'), index=False)
+        df_binance.to_csv(os.path.join(SNAPSHOTS_DIR, 'Initial_Snapshot_Binance.csv'), index=False)
         logging.info(f"Snapshot Binance salvato ({len(df_binance)} record)")
 
     if snapshot_okx:
         df_okx = pd.DataFrame(snapshot_okx)
-        df_okx.to_csv(os.path.join(OUTPUT_FOLDER, 'Initial_Snapshot_OKX.csv'), index=False)
+        df_okx.to_csv(os.path.join(SNAPSHOTS_DIR, 'Initial_Snapshot_OKX.csv'), index=False)
         logging.info(f"Snapshot OKX salvato ({len(df_okx)} record)")
 
     if snapshot_bybit:
         df_bybit = pd.DataFrame(snapshot_bybit)
-        df_bybit.to_csv(os.path.join(OUTPUT_FOLDER, 'Initial_Snapshot_Bybit.csv'), index=False)
+        df_bybit.to_csv(os.path.join(SNAPSHOTS_DIR, 'Initial_Snapshot_Bybit.csv'), index=False)
         logging.info(f"Snapshot Bybit salvato ({len(df_bybit)} record)")
 
 async def run_live_stream(exchanges, valid_pairs_binance, valid_pairs_okx, valid_pairs_bybit):

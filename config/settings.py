@@ -1,7 +1,4 @@
-﻿"""
-Configurazioni globali del sistema di arbitraggio.
-"""
-from itertools import product
+﻿from itertools import product
 
 COINS = [
     "BTC", "ETH", "BNB", "SOL", "XRP", "DOGE", "ADA", "AVAX", "SHIB", "DOT",
@@ -20,7 +17,6 @@ MIN_CYCLE_LENGTH = 3
 MAX_CYCLE_LENGTH = 10
 
 OUTPUT_DIR = "output"
-OUTPUT_FOLDER = "crypto_csv_output"
 SNAPSHOTS_DIR = f"{OUTPUT_DIR}/snapshots"
 LOGS_DIR = f"{OUTPUT_DIR}/logs"
 DEBUG_DIR = f"{OUTPUT_DIR}/debug"

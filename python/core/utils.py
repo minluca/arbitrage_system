@@ -3,9 +3,11 @@ Utility generiche per il progetto arbitrage_system.
 """
 from datetime import datetime
 import os
-from config.settings import OUTPUT_FOLDER, COINS
+from config.settings import SNAPSHOTS_DIR, LOGS_DIR, DEBUG_DIR, COINS
 
-os.makedirs(OUTPUT_FOLDER, exist_ok=True)
+os.makedirs(SNAPSHOTS_DIR, exist_ok=True)
+os.makedirs(LOGS_DIR, exist_ok=True)
+os.makedirs(DEBUG_DIR, exist_ok=True)
 
 
 def now_ts() -> str:
