@@ -52,13 +52,23 @@ arbitrage_system/
 ## How It Works
 
 1. **Data Collection**: Python server connects to Binance, OKX, and Bybit WebSocket APIs to receive real-time order book updates
-2. **Cross-Exchange Bridges**: System generates virtual edges between identical assets on different exchanges (e.g., BTC_Binance � BTC_OKX)
+2. **Cross-Exchange Bridges**: System generates virtual edges between identical assets on different exchanges (e.g., BTC_Binance ↔ BTC_OKX) with price 1.0 to represent transfer possibilities
 3. **Graph Construction**: Market data is structured as a weighted directed graph where:
-   - Nodes = trading pairs on each exchange
+   - Nodes = assets on each exchange (e.g., BTC_Binance, ETH_OKX)
    - Edges = conversion rates (negative log of price for Bellman-Ford)
-   - Cross-exchange edges = deposit/withdrawal paths
+   - Cross-exchange edges = virtual bridges for asset transfers between platforms
 4. **Arbitrage Detection**: C++ detector runs Bellman-Ford algorithm to identify negative cycles (profitable arbitrage loops)
 5. **Real-time Updates**: Continuous data streaming ensures detection of opportunities as they emerge
+
+**Note on Cross-Exchange Arbitrage**: While the system models cross-exchange transfers as instant 1:1 bridges, real-world execution involves:
+
+- Transfer time (blockchain confirmations: minutes to hours)
+- Network fees (variable based on blockchain congestion)
+- Exchange deposit/withdrawal fees
+- Price slippage during transfer window
+- Non-atomic execution risk
+
+For production use, these costs should be incorporated into the edge weights. The current implementation is suitable for research and identifying theoretical opportunities.
 
 ## Requirements
 
@@ -76,9 +86,9 @@ arbitrage_system/
 
 ### C++
 
-- C++17 compatible compiler (MSVC, GCC, or Clang)
-- CMake 3.10+ (optional, for build)
+- **MinGW-w64** with g++ compiler (C++17 support required)
 - nlohmann/json library (included in `cpp/include/`)
+- Windows Sockets 2 library (ws2_32)
 
 ### System
 
@@ -88,38 +98,57 @@ arbitrage_system/
 
 ## Quick Start
 
-### 1. Compile C++ Detector
+### Prerequisites
+
+1. **Install Python dependencies** (first time only):
+
+   ```bash
+   python -m venv venv
+   .\venv\Scripts\Activate.ps1
+   pip install -r requirements.txt
+   ```
+
+2. **Compile C++ detector** (first time only):
+
+   ```powershell
+   .\scripts\compile.ps1
+   ```
+
+### Automatic Startup (Recommended)
+
+The easiest way to start the system is using the automated startup script:
 
 ```powershell
-.\scripts\compile.ps1
+.\scripts\start.ps1
 ```
 
-Or manually:
+This script will:
 
-**Windows:**
+- ✅ Verify all prerequisites (venv, compiled C++ executable)
+- ✅ Check port 5001 availability (with option to kill conflicting processes)
+- ✅ Start Python server in a separate window
+- ✅ Wait for server initialization
+- ✅ Start C++ detector in a separate window
+- ✅ Provide status updates and monitoring instructions
 
-```bash
-cd cpp
-g++ -std=c++17 -O3 -o build/arbitrage_detector.exe src/main.cpp src/Graph.cpp src/SocketClient.cpp -Iinclude -lws2_32
-```
+**Output**: Two PowerShell windows will open:
 
-**Linux/Mac:**
+1. **Python Server** - Shows WebSocket connections and data streaming
+2. **C++ Detector** - Shows real-time arbitrage detection
 
-```bash
-cd cpp
-g++ -std=c++17 -O3 -o build/arbitrage_detector src/*.cpp -Iinclude -lpthread
-```
+To stop the system, press `CTRL+C` in both windows or simply close them.
 
-### 2. Start Python Server
+### Manual Startup (Advanced)
 
-```bash
-python python/main.py
-```
+If you prefer to start components individually:
 
-Or if already in project root:
+**1. Start Python Server** (in terminal 1):
 
 ```bash
-cd arbitrage_system
+# Activate virtual environment
+.\venv\Scripts\Activate.ps1
+
+# Run Python server
 python python/main.py
 ```
 
@@ -127,9 +156,9 @@ The server will:
 
 - Connect to Binance, OKX, and Bybit WebSocket streams
 - Start TCP server on localhost:5001
-- Log initial snapshots to `output/snapshots/`
+- Save initial snapshots to `output/snapshots/`
 
-### 3. Launch C++ Detector
+**2. Launch C++ Detector** (in terminal 2):
 
 ```bash
 .\cpp\build\arbitrage_detector.exe
@@ -137,9 +166,11 @@ The server will:
 
 The detector will:
 
-- Connect to Python server
+- Connect to Python server on localhost:5001
 - Begin processing market data
-- Output detected arbitrage opportunities to console and logs
+- Output detected arbitrage opportunities to console
+
+**Note**: Start the Python server first, then the C++ detector. The C++ detector needs the Python server to be listening on port 5001.
 
 ## Configuration
 
@@ -244,13 +275,14 @@ taskkill /PID <PID> /F
 
 ### C++ Compilation Errors
 
-**Solution**: Ensure C++17 support and include paths are correct
+**Solution**: Ensure MinGW-w64 with g++ is installed and in PATH
 
 ```bash
-# Verify compiler version
-g++ --version  # Should be 7.0+
-cl /?          # MSVC 19.14+
+# Verify g++ is available
+g++ --version  # Should support C++17 (gcc 7.0+)
 ```
+
+**Windows installation**: Download MinGW-w64 from [winlibs.com](https://winlibs.com) or use MSYS2
 
 ## Advanced Usage
 
@@ -270,9 +302,9 @@ Replace Bellman-Ford in `cpp/src/Graph.cpp` with:
 
 ### Performance Tuning
 
-- Adjust `BUFFER_SIZE` for network throughput
-- Enable C++ optimizations: `-O3 -march=native`
-- Use release builds (remove debug symbols)
+- Adjust `BUFFER_SIZE` in [config/network.py](config/network.py) for network throughput
+- Modify g++ compilation flags in [scripts/compile.ps1](scripts/compile.ps1) (e.g., add `-O3` for optimization)
+- Reduce logging verbosity in production environments
 
 ## Documentation
 
