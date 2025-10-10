@@ -77,21 +77,23 @@ python python/main.py
 2025-10-08 23:38:20 - INFO - Inizio script...
 2025-10-08 23:38:20 - INFO - Snapshot Binance salvato (147 record)
 2025-10-08 23:38:20 - INFO - Snapshot OKX salvato (132 record)
+2025-10-08 23:38:20 - INFO - Snapshot Bybit salvato (98 record)
 2025-10-08 23:38:20 - INFO - [Binance] Avvio WS con 147 simboli...
 2025-10-08 23:38:20 - INFO - [OKX] Avvio WS con 132 simboli...
+2025-10-08 23:38:20 - INFO - [Bybit] Avvio WS con 98 simboli...
 [Python Server] In attesa di connessione su 127.0.0.1:5001...
 [Python Server] Connesso da ('127.0.0.1', 52341)
 2025-10-08 23:38:22 - INFO - [Python Server] Invio ponti cross-exchange iniziali...
-2025-10-08 23:38:22 - INFO - [Python Server] Inviati 22 ponti cross-exchange
+2025-10-08 23:38:22 - INFO - [Python Server] Inviati 44 ponti cross-exchange
 ```
 
 **What's happening:**
 
-1. Python fetches initial market snapshots from Binance and OKX REST APIs
+1. Python fetches initial market snapshots from Binance, OKX, and Bybit REST APIs
 2. Saves snapshots to CSV files in `output/snapshots/`
 3. Starts TCP server on `127.0.0.1:5001`
 4. Waits for C++ client connection
-5. Once connected, sends cross-exchange bridge edges (e.g., BTC_Binance ↔ BTC_OKX)
+5. Once connected, sends cross-exchange bridge edges (e.g., BTC_Binance ↔ BTC_OKX ↔ BTC_Bybit)
 6. Begins streaming real-time WebSocket updates to the C++ client
 
 ### Terminal 2: C++ Detector (Start Second)
@@ -458,6 +460,7 @@ ping okx.com
 
 - Binance: <https://www.binance.com/en/support/announcement>
 - OKX: <https://www.okx.com/support/hc/en-us>
+- Bybit: <https://www.bybit.com/en/announcement-info>
 
 Wait for maintenance to complete.
 
@@ -548,6 +551,7 @@ g++ ... -I/full/path/to/cpp/include
 
 - `Initial_Snapshot_Binance.csv`
 - `Initial_Snapshot_OKX.csv`
+- `Initial_Snapshot_Bybit.csv`
 
 **Format**:
 

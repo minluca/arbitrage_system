@@ -11,7 +11,7 @@ COINS = [
 
 SYMBOLS = [f"{base}{quote}" for base, quote in product(COINS, COINS) if base != quote]
 
-EXCHANGES = ["Binance", "OKX"]
+EXCHANGES = ["Binance", "OKX", "Bybit"]
 
 STABLECOINS = {"USDT", "USDC", "TUSD"}
 

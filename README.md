@@ -1,6 +1,6 @@
 # Cryptocurrency Arbitrage Detection System
 
-A high-performance real-time arbitrage detection system that monitors multiple cryptocurrency exchanges (Binance and OKX) and identifies profitable cross-exchange arbitrage opportunities using the Bellman-Ford algorithm.
+A high-performance real-time arbitrage detection system that monitors multiple cryptocurrency exchanges (Binance, OKX, and Bybit) and identifies profitable cross-exchange arbitrage opportunities using the Bellman-Ford algorithm.
 
 ## Overview
 
@@ -51,7 +51,7 @@ arbitrage_system/
 
 ## How It Works
 
-1. **Data Collection**: Python server connects to Binance and OKX WebSocket APIs to receive real-time order book updates
+1. **Data Collection**: Python server connects to Binance, OKX, and Bybit WebSocket APIs to receive real-time order book updates
 2. **Cross-Exchange Bridges**: System generates virtual edges between identical assets on different exchanges (e.g., BTC_Binance � BTC_OKX)
 3. **Graph Construction**: Market data is structured as a weighted directed graph where:
    - Nodes = trading pairs on each exchange
@@ -125,7 +125,7 @@ python python/main.py
 
 The server will:
 
-- Connect to Binance and OKX WebSocket streams
+- Connect to Binance, OKX, and Bybit WebSocket streams
 - Start TCP server on localhost:5001
 - Log initial snapshots to `output/snapshots/`
 
@@ -182,6 +182,7 @@ Initial market state saved to `output/snapshots/`:
 
 - `Initial_Snapshot_Binance.csv`
 - `Initial_Snapshot_OKX.csv`
+- `Initial_Snapshot_Bybit.csv`
 
 ### Logs
 
@@ -239,6 +240,7 @@ taskkill /PID <PID> /F
 
 - Binance: <https://binance.com/en/support/announcement>
 - OKX: <https://www.okx.com/support/hc/en-us>
+- Bybit: <https://www.bybit.com/en/announcement-info>
 
 ### C++ Compilation Errors
 

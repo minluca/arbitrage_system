@@ -4,7 +4,7 @@
 
 Distributed system for real-time detection of cross-exchange arbitrage opportunities in cryptocurrency markets. The architecture is divided into two main components:
 
-- **Python**: Data collection from multiple exchanges (Binance, OKX) via REST API and WebSocket
+- **Python**: Data collection from multiple exchanges (Binance, OKX, Bybit) via REST API and WebSocket
 - **C++**: Arbitrage detection using Bellman-Ford algorithm on weighted graph
 
 The two components communicate via TCP socket on `localhost:5001`.
@@ -16,51 +16,63 @@ The two components communicate via TCP socket on `localhost:5001`.
 System entry point. Coordinates the following phases:
 
 1. **Initialization** (`fetch_valid_pairs`):
-   - Fetch valid symbols from Binance and OKX
+   - Fetch valid symbols from Binance, OKX, and Bybit
    - Filter symbols based on `SYMBOLS` (pairs generated from `COINS`)
 
 2. **Initial Snapshot** (`run_snapshot`):
    - Parallel REST requests with `asyncio.gather`
-   - CSV output: `Initial_Snapshot_Binance.csv`, `Initial_Snapshot_OKX.csv`
+   - CSV output: `Initial_Snapshot_Binance.csv`, `Initial_Snapshot_OKX.csv`, `Initial_Snapshot_Bybit.csv`
 
 3. **Live Streaming** (`run_live_stream`):
    - Create shared asyncio queue
-   - Launch parallel tasks: `stream_binance_ws`, `stream_okx_ws`, `socket_consumer`
+   - Launch parallel tasks: `stream_binance_ws`, `stream_okx_ws`, `stream_bybit_ws`, `socket_consumer`
    - Graceful shutdown handling (CTRL+C)
 
-### 2.2 REST API ([python/data_sources/rest_api.py](../python/data_sources/rest_api.py))
+### 2.2 Exchange Classes
 
-Fetch initial snapshots via REST API:
+Each exchange has a dedicated class implementing `ExchangeBase`:
 
-- **Binance**:
+- **Binance** ([python/data_sources/binance_exchange.py](../python/data_sources/binance_exchange.py)):
   - Symbols: `GET /api/v3/exchangeInfo` (filter `status=TRADING`)
   - Prices: `GET /api/v3/ticker/24hr` (lastPrice, volume)
+  - WebSocket: `wss://stream.binance.com:9443/stream?streams={symbols}@ticker`
 
-- **OKX**:
+- **OKX** ([python/data_sources/okx_exchange.py](../python/data_sources/okx_exchange.py)):
   - Symbols: `GET /api/v5/public/instruments?instType=SPOT` (filter `state=live`)
   - Prices: `GET /api/v5/market/tickers?instType=SPOT` (last, vol24h)
+  - WebSocket: `wss://ws.okx.com:8443/ws/v5/public`
+
+- **Bybit** ([python/data_sources/bybit_exchange.py](../python/data_sources/bybit_exchange.py)):
+  - Symbols: `GET /v5/market/instruments-info?category=spot` (filter `status=Trading`)
+  - Prices: `GET /v5/market/tickers?category=spot` (lastPrice, volume24h)
+  - WebSocket: `wss://stream.bybit.com/v5/public/spot` (max 10 tickers per subscription)
 
 Fallback to default symbols (`BTCUSDT`, `ETHUSDT`) on error.
 
-### 2.3 WebSocket Streaming ([python/data_sources/ws_stream.py](../python/data_sources/ws_stream.py))
+### 2.3 WebSocket Streaming
 
-Real-time ticker streaming via WebSocket:
+Real-time ticker streaming via WebSocket (each exchange implements `stream_ws`):
 
-- **Generic Function** (`stream_ws`):
+- **Common Features**:
   - WebSocket connection with keepalive (ping_interval=20s)
   - Exponential retry (backoff: 1s → 30s max)
-  - Custom parsing per exchange
+  - Custom parsing per exchange via parsers
   - Push data to `asyncio.Queue`
 
-- **Binance** (`stream_binance_ws`):
+- **Binance**:
   - URL: `wss://stream.binance.com:9443/stream?streams={streams}`
   - Stream format: `btcusdt@ticker/ethusdt@ticker/...`
   - Parser: `parse_binance` (field `c` = close price, `v` = volume)
 
-- **OKX** (`stream_okx_ws`):
+- **OKX**:
   - URL: `wss://ws.okx.com:8443/ws/v5/public`
-  - Requires subscription: `{"op":"subscribe","args":[{"channel":"tickers","instId":"BTC-USDT"}]}`
+  - Subscription: `{"op":"subscribe","args":[{"channel":"tickers","instId":"BTC-USDT"}]}`
   - Parser: `parse_okx` (fields `last`, `vol24h`)
+
+- **Bybit**:
+  - URL: `wss://stream.bybit.com/v5/public/spot`
+  - Subscription: `{"op":"subscribe","args":["tickers.BTCUSDT", ...]}` (batched in groups of 10)
+  - Parser: `parse_bybit` (fields `lastPrice`, `volume24h`)
 
 ### 2.4 Cross-Exchange Bridges ([python/core/cross_exchange.py](../python/core/cross_exchange.py))
 
@@ -389,7 +401,7 @@ void Graph::findArbitrage() {
 **[config/settings.py](../config/settings.py)**:
 
 - `COINS`: 22 assets
-- `EXCHANGES`: ["Binance", "OKX"]
+- `EXCHANGES`: ["Binance", "OKX", "Bybit"]
 - `PROFIT_THRESHOLD`: 1.00005 (0.005%)
 - `MIN_CYCLE_LENGTH`: 3
 

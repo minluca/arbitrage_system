@@ -30,7 +30,6 @@ def parse_binance(msg):
 
 
 def parse_okx(msg):
-    """Parser per messaggi WebSocket da OKX."""
     if "data" not in msg:
         return None
     try:
@@ -45,6 +44,27 @@ def parse_okx(msg):
             CSV_FIELDS[4]: float(item["last"]),
             CSV_FIELDS[5]: float(item["vol24h"]),
             CSV_FIELDS[6]: "OKX"
+        }
+    except Exception:
+        return None
+
+
+def parse_bybit(msg):
+    topic = msg.get('topic', '')
+    if not topic.startswith('tickers.') or 'data' not in msg:
+        return None
+    try:
+        data = msg['data']
+        symbol = norm_symbol(data['symbol'])
+        base, quote = split_symbol(symbol)
+        return {
+            CSV_FIELDS[0]: now_ts(),
+            CSV_FIELDS[1]: symbol,
+            CSV_FIELDS[2]: base,
+            CSV_FIELDS[3]: quote,
+            CSV_FIELDS[4]: float(data['lastPrice']),
+            CSV_FIELDS[5]: float(data['volume24h']),
+            CSV_FIELDS[6]: "Bybit"
         }
     except Exception:
         return None
