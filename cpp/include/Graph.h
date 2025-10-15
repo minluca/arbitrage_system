@@ -1,62 +1,90 @@
 #pragma once
 
-#include <unordered_map>
-#include <string>
-#include <vector>
-#include <iostream>
-#include <sstream>
-
-#include "json.hpp"
-using json = nlohmann::json;
-#include <limits>
+// === Standard Library Includes ===
+#include <algorithm>
 #include <chrono>
-#include <iomanip>
 #include <ctime>
 #include <deque>
+#include <iomanip>
+#include <iostream>
+#include <limits>
 #include <set>
+#include <sstream>
+#include <string>
+#include <unordered_map>
 #include <unordered_set>
-#include <algorithm>
+#include <vector>
 
+// === External Dependencies ===
+#include "json.hpp"
+using json = nlohmann::json;
+
+// === Edge Structure ===
 struct Edge {
     int source;
     int destination;
-    double weight;          
-    double price;           
-    std::string exchange;   
-    std::string symbol;     
+    double weight;          // -log(price) for Bellman-Ford
+    double price;           // actual exchange rate
+    std::string exchange;   // "Binance", "OKX", "Cross"
+    std::string symbol;     // trading pair symbol
 };
 
-class Graph{
-    private:
-        std::unordered_map<std::string, int> nodeIds;
-        std::vector<std::string> nodeNames;
-        std::vector<Edge> edges;
-        std::deque<std::string> recentCycles;
-        std::unordered_set<std::string> recentSet;
-        static const size_t MAX_CYCLE_CACHE = 100;
+// === Graph Class ===
+class Graph {
+private:
+    // === Core Graph Data ===
+    std::unordered_map<std::string, int> nodeIds;  // node name -> ID mapping
+    std::vector<std::string> nodeNames;            // ID -> node name mapping
+    std::vector<Edge> edges;                       // all graph edges
 
-        
-        struct ArbitrageBucket {
-            double representativeProfit;
-            std::vector<std::string> cycles;  
-        };
+    // === Cycle Deduplication ===
+    std::deque<std::string> recentCycles;          // LRU cache of cycle signatures
+    std::unordered_set<std::string> recentSet;     // fast lookup for duplicates
+    static const size_t MAX_CYCLE_CACHE = 100;     // max cached cycles
 
-        std::vector<ArbitrageBucket> profitBuckets;
-        static constexpr double EPS_BUCKET = 1e-6;  
-    public:
-        int addNode(std::string name);
-        double addOrUpdateEdge(std::string source, std::string destination,
-                       double price,
-                       const std::string& exchange = "",
-                       const std::string& symbol = "");
-        void printAllEdges();
-        void processMessage(std::string msg);
-        void findArbitrage();
-        void printGraphSummary(int maxEdgesToShow);
-        std::string makeCycleSignature(const std::vector<int>& cycle, double profit);
-        bool isDuplicateCycle(const std::string& sig);
-        std::vector<int> canonicalizeCycle(const std::vector<int>& cycle) const;
-        std::string canonicalSignature(const std::vector<int>& cycle, double profit);
-        int findExistingBucket(double profit);
-        void printBucketSummary();
+    // === Profit Bucketing (unused, reserved for future) ===
+    struct ArbitrageBucket {
+        double representativeProfit;
+        std::vector<std::string> cycles;
+    };
+    std::vector<ArbitrageBucket> profitBuckets;
+    static constexpr double EPS_BUCKET = 1e-6;
+
+    // === Super-Source Algorithm Support ===
+    int superSourceId = -1;                        // super-source node ID
+    size_t lastSuperEdgeAddForNodeCount = 0;       // track when to add new edges
+
+    // === Helper Functions ===
+    void ensureSuperSourceEdges();                 // create/update super-source connections
+    bool warmupActive();                           // check if in warmup period
+
+public:
+    // === Graph Construction ===
+    int addNode(std::string name);
+    double addOrUpdateEdge(std::string source, 
+                           std::string destination,
+                           double price,
+                           const std::string& exchange = "",
+                           const std::string& symbol = "");
+
+    // === Data Processing ===
+    void processMessage(std::string msg);          // parse and add edge from JSON
+
+    // === Arbitrage Detection ===
+    void findArbitrage();                          // classic multi-source Bellman-Ford
+    void findArbitrageSuperSource();               // super-source single-run Bellman-Ford
+
+    // === Cycle Utilities ===
+    std::vector<int> canonicalizeCycle(const std::vector<int>& cycle) const;
+    std::string canonicalSignature(const std::vector<int>& cycle, double profit);
+    std::string makeCycleSignature(const std::vector<int>& cycle, double profit);
+    bool isDuplicateCycle(const std::string& sig);
+
+    // === Bucketing (unused) ===
+    int findExistingBucket(double profit);
+    void printBucketSummary();
+
+    // === Diagnostics ===
+    void printAllEdges();
+    void printGraphSummary(int maxEdgesToShow);
 };

@@ -434,3 +434,154 @@ void Graph::printGraphSummary(int maxEdgesToShow) {
     }
     std::cout << "===============================\n";
 }
+
+void Graph::ensureSuperSourceEdges() {
+    if (superSourceId == -1) superSourceId = addNode("SUPER_SOURCE");
+    for (size_t i = lastSuperEdgeAddForNodeCount; i < nodeNames.size(); ++i)
+        if ((int)i != superSourceId)
+            addOrUpdateEdge("SUPER_SOURCE", nodeNames[i], 1.0, "Cross", "SUPER");
+    lastSuperEdgeAddForNodeCount = nodeNames.size();
+}
+
+bool Graph::warmupActive() {
+    static bool init = false;
+    static std::time_t start = 0;
+    const int WARMUP_SECONDS = 3;
+    std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+    if (!init) { init = true; start = now; }
+    return (now - start < WARMUP_SECONDS) || nodeNames.size() < 3;
+}
+
+void Graph::findArbitrageSuperSource() {
+    const int V = static_cast<int>(nodeNames.size());
+    if (V == 0 || warmupActive()) return;
+    
+    ensureSuperSourceEdges();
+    if (superSourceId < 0 || superSourceId >= V) return;
+
+    using clock_wall = std::chrono::system_clock;
+
+    static std::time_t lastSecond = 0;
+    static int foundThisSecond = 0;
+
+    std::time_t secNow = clock_wall::to_time_t(clock_wall::now());
+    if (lastSecond == 0) lastSecond = secNow;
+    
+    if (secNow != lastSecond) {
+        if (foundThisSecond == 0) {
+            std::tm t = *std::localtime(&lastSecond);
+            std::cout << "[SuperSource] --- Nessun arbitraggio tra "
+                      << std::put_time(&t, "%H:%M:%S") << " e "
+                      << std::put_time(std::localtime(&secNow), "%H:%M:%S")
+                      << " ---\n";
+        } else {
+            std::tm t = *std::localtime(&lastSecond);
+            std::cout << "[SuperSource] === Arbitraggi trovati @ " << std::put_time(&t, "%H:%M:%S")
+                      << " => " << foundThisSecond << " ===\n\n";
+        }
+        foundThisSecond = 0;
+        lastSecond = secNow;
+    }
+
+    static constexpr double RELAX_EPS = 1e-6;
+    static constexpr double PROFIT_MIN_LOCAL = 1.000001;
+    static constexpr double PROFIT_MAX_LOCAL = 10.0;
+
+    std::vector<double> dist(V, std::numeric_limits<double>::infinity());
+    std::vector<int> parent(V, -1);
+    std::vector<int> parentEdge(V, -1);
+    dist[superSourceId] = 0.0;
+
+    for (int i = 0; i < V - 1; ++i) {
+        for (int ei = 0; ei < (int)edges.size(); ++ei) {
+            const auto& e = edges[ei];
+            
+            if (dist[e.source] != std::numeric_limits<double>::infinity() &&
+                dist[e.source] + e.weight < dist[e.destination]) {
+                dist[e.destination] = dist[e.source] + e.weight;
+                parent[e.destination] = e.source;
+                parentEdge[e.destination] = ei;
+            }
+        }
+    }
+
+    for (int ei = 0; ei < (int)edges.size(); ++ei) {
+        const auto& e = edges[ei];
+        
+        if (dist[e.source] != std::numeric_limits<double>::infinity() &&
+            dist[e.source] + e.weight < dist[e.destination] - RELAX_EPS) {
+            
+            int v = e.destination;
+            for (int i = 0; i < V; ++i) {
+                v = parent[v];
+            }
+
+            std::vector<int> cycle;
+            int cur = v;
+            do {
+                cycle.push_back(cur);
+                cur = parent[cur];
+            } while (cur != v && cur != -1);
+            
+            if (cycle.empty()) continue;
+            std::reverse(cycle.begin(), cycle.end());
+
+            const int n = (int)cycle.size();
+            std::vector<int> cycleEdgeIdx;
+            cycleEdgeIdx.reserve(n);
+            bool edgesOk = true;
+            
+            for (int i = 0; i < n; ++i) {
+                int toNode = cycle[(i + 1) % n];
+                int pe = parentEdge[toNode];
+                
+                if (pe < 0 || 
+                    edges[pe].source != cycle[i] || 
+                    edges[pe].destination != toNode) {
+                    edgesOk = false;
+                    break;
+                }
+                cycleEdgeIdx.push_back(pe);
+            }
+            
+            if (!edgesOk) continue;
+
+            double profit = 1.0;
+            for (int pe : cycleEdgeIdx) {
+                double p = edges[pe].price;
+                if (!std::isfinite(p) || p <= 0.0) {
+                    profit = std::numeric_limits<double>::quiet_NaN();
+                    break;
+                }
+                profit *= p;
+                if (!std::isfinite(profit)) break;
+            }
+
+            if (!std::isfinite(profit)) continue;
+            if (profit <= 0.0 || profit > PROFIT_MAX_LOCAL) continue;
+            if ((int)cycle.size() < MIN_CYCLE_LEN) continue;
+            if (profit < PROFIT_MIN_LOCAL) continue;
+
+            std::string sig = canonicalSignature(cycle, profit);
+            if (isDuplicateCycle(sig)) continue;
+
+            std::ostringstream path;
+            for (int nidx : cycle) {
+                path << nodeNames[nidx] << " -> ";
+            }
+            path << nodeNames[cycle.front()];
+
+            std::time_t ts = clock_wall::to_time_t(clock_wall::now());
+            std::tm ts_tm = *std::localtime(&ts);
+            
+            std::ostringstream pss;
+            pss << std::fixed << std::setprecision(10) << profit;
+
+            std::cout << "[SuperSource] [" << std::put_time(&ts_tm, "%Y-%m-%d %H:%M:%S") << "] "
+                      << "[!] Arbitraggio trovato! Profit = " << pss.str()
+                      << "x | Percorso: " << path.str() << "\n";
+
+            foundThisSecond++;
+        }
+    }
+}

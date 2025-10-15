@@ -4,7 +4,6 @@
 # This script automatically starts both the Python server and C++ detector
 # in separate PowerShell windows with proper initialization checks.
 
-# CLAUDE_FIX: Change to project root (parent of scripts directory)
 $projectRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $projectRoot
 Write-Host "`n========================================" -ForegroundColor Cyan
@@ -12,7 +11,6 @@ Write-Host "  ARBITRAGE SYSTEM STARTUP" -ForegroundColor Cyan
 Write-Host "========================================`n" -ForegroundColor Cyan
 Write-Host "Project root: $projectRoot`n" -ForegroundColor Gray
 
-# CLAUDE_FIX: Verify prerequisites exist
 Write-Host "[1/5] Verifying prerequisites..." -ForegroundColor Cyan
 
 # Check virtual environment
@@ -39,7 +37,6 @@ if (-not (Test-Path $cppExePath)) {
 }
 Write-Host "  [OK] C++ executable found" -ForegroundColor Green
 
-# CLAUDE_FIX: Check if port 5001 is already in use
 Write-Host "`n[2/5] Checking port availability..." -ForegroundColor Cyan
 $portInUse = $false
 try {
@@ -78,7 +75,6 @@ try {
     Write-Host "  [OK] Port 5001 appears to be available" -ForegroundColor Green
 }
 
-# CLAUDE_FIX: Start Python server in new window
 Write-Host "`n[3/5] Starting Python server..." -ForegroundColor Cyan
 
 $pythonScript = @"
@@ -104,7 +100,6 @@ try {
     exit 1
 }
 
-# CLAUDE_FIX: Wait for Python server to start listening on port 5001
 Write-Host "`n[4/5] Waiting for Python server to be ready..." -ForegroundColor Cyan
 $timeout = 20  # seconds
 $elapsed = 0
@@ -144,7 +139,6 @@ if (-not $serverReady) {
 # Add small delay to ensure server is fully initialized
 Start-Sleep -Seconds 2
 
-# CLAUDE_FIX: Start C++ detector in new window
 Write-Host "`n[5/5] Starting C++ detector..." -ForegroundColor Cyan
 
 $cppScript = @"
@@ -172,7 +166,6 @@ try {
     exit 1
 }
 
-# CLAUDE_FIX: Print success message
 Write-Host "`n========================================" -ForegroundColor Green
 Write-Host "  SISTEMA AVVIATO CON SUCCESSO!" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Green
