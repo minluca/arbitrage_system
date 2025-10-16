@@ -38,24 +38,24 @@ async def run_snapshot(client, exchanges, valid_pairs_binance, valid_pairs_okx, 
     if snapshot_binance:
         df_binance = pd.DataFrame(snapshot_binance)
         df_binance.to_csv(os.path.join(SNAPSHOTS_DIR, 'Initial_Snapshot_Binance.csv'), index=False)
-        logging.info(f"Snapshot Binance salvato ({len(df_binance)} record)")
+        logging.info(f"Binance snapshot saved ({len(df_binance)} records)")
 
     if snapshot_okx:
         df_okx = pd.DataFrame(snapshot_okx)
         df_okx.to_csv(os.path.join(SNAPSHOTS_DIR, 'Initial_Snapshot_OKX.csv'), index=False)
-        logging.info(f"Snapshot OKX salvato ({len(df_okx)} record)")
+        logging.info(f"OKX snapshot saved ({len(df_okx)} records)")
 
     if snapshot_bybit:
         df_bybit = pd.DataFrame(snapshot_bybit)
         df_bybit.to_csv(os.path.join(SNAPSHOTS_DIR, 'Initial_Snapshot_Bybit.csv'), index=False)
-        logging.info(f"Snapshot Bybit salvato ({len(df_bybit)} record)")
+        logging.info(f"Bybit snapshot saved ({len(df_bybit)} records)")
 
 async def run_live_stream(exchanges, valid_pairs_binance, valid_pairs_okx, valid_pairs_bybit):
     queue = asyncio.Queue()
 
-    logging.info(f"[Binance] Avvio WS con {len(valid_pairs_binance)} simboli...")
-    logging.info(f"[OKX] Avvio WS con {len(valid_pairs_okx)} simboli...")
-    logging.info(f"[Bybit] Avvio WS con {len(valid_pairs_bybit)} simboli...")
+    logging.info(f"[Binance] Starting WS with {len(valid_pairs_binance)} symbols...")
+    logging.info(f"[OKX] Starting WS with {len(valid_pairs_okx)} symbols...")
+    logging.info(f"[Bybit] Starting WS with {len(valid_pairs_bybit)} symbols...")
 
     binance_task = asyncio.create_task(exchanges['binance'].stream_ws(queue, valid_pairs_binance))
     okx_task = asyncio.create_task(exchanges['okx'].stream_ws(queue, valid_pairs_okx))
@@ -67,11 +67,11 @@ async def run_live_stream(exchanges, valid_pairs_binance, valid_pairs_okx, valid
     try:
         await asyncio.gather(*tasks)
     except asyncio.CancelledError:
-        logging.info("CTRL+C rilevato, chiusura in corso...")
+        logging.info("CTRL+C detected, shutting down...")
         raise
 
 async def main():
-    logging.info("Inizio script...")
+    logging.info("Starting script...")
 
     exchanges = {
         'binance': BinanceExchange(),
@@ -89,4 +89,4 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        logging.info("Terminazione manuale con CTRL+C")
+        logging.info("Manual termination with CTRL+C")

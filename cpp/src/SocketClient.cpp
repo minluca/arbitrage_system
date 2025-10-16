@@ -12,13 +12,13 @@ namespace Socket
         
         WSADATA wsaData;
         if (WSAStartup(MAKEWORD(2,2), &wsaData) != 0) {
-            std::cerr << "[Client] Errore WSAStartup" << std::endl;
+            std::cerr << "[Client] WSAStartup error" << std::endl;
             exit(1);
         }
 
         _socket = socket(AF_INET, SOCK_STREAM, 0);
         if (_socket == INVALID_SOCKET) {
-            std::cerr << "[Client] Errore creazione socket" << std::endl;
+            std::cerr << "[Client] Socket creation error" << std::endl;
             WSACleanup();
             exit(1);
         }
@@ -29,13 +29,13 @@ namespace Socket
         serv_addr.sin_addr.s_addr = inet_addr(ip.c_str());
 
         if (connect(_socket, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0) {
-            std::cerr << "[Client] Errore connessione" << std::endl;
+            std::cerr << "[Client] Connection error" << std::endl;
             closesocket(_socket);
             WSACleanup();
             exit(1);
         }
 
-        std::cout << "[Client] Connesso a " << ip << ":" << port << std::endl;
+        std::cout << "[Client] Connected to " << ip << ":" << port << std::endl;
     }
 
     Client::~Client() 

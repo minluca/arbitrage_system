@@ -48,7 +48,7 @@ class OKXExchange(ExchangeBase):
         symbols = [s for s in (symbols or []) if isinstance(s, str) and s.strip()]
         inst_ids = [to_okx_format(s) for s in symbols if s]
         if not inst_ids:
-            logging.warning("[OKX] Nessun simbolo da seguire.")
+            logging.warning("[OKX] No symbols to follow.")
             return
 
         url = "wss://ws.okx.com:8443/ws/v5/public"
@@ -61,18 +61,18 @@ class OKXExchange(ExchangeBase):
         msg_count = 0
         while True:
             try:
-                logging.info(f"[OKX] Connessione WS: {url}")
+                logging.info(f"[OKX] WS connection: {url}")
                 async with websockets.connect(
                     url,
                     ping_interval=20,
                     ping_timeout=20,
                     max_size=None
                 ) as ws:
-                    logging.info(f"[OKX] Connesso.")
+                    logging.info(f"[OKX] Connected.")
                     backoff = 1.0
 
                     await ws.send(json.dumps(sub_msg))
-                    logging.info(f"[OKX] Messaggio di sottoscrizione inviato.")
+                    logging.info(f"[OKX] Subscription message sent.")
 
                     async for raw in ws:
                         try:
@@ -82,13 +82,13 @@ class OKXExchange(ExchangeBase):
                                 await updates_q.put(update)
                                 msg_count += 1
                                 if msg_count % 500 == 0:
-                                    logging.info(f"[OKX] Stream attivo, processati {msg_count} messaggi.")
+                                    logging.info(f"[OKX] Stream active, processed {msg_count} messages.")
                         except Exception as parse_err:
                             logging.debug(f"[OKX] Parse skip: {parse_err}")
             except asyncio.CancelledError:
-                logging.info(f"[OKX] Task cancellato, chiusura producer...")
+                logging.info(f"[OKX] Task cancelled, closing producer...")
                 raise
             except Exception as e:
-                logging.warning(f"[OKX] Errore WS: {e} → retry in {backoff:.1f}s")
+                logging.warning(f"[OKX] WS error: {e} → retry in {backoff:.1f}s")
                 await asyncio.sleep(backoff)
                 backoff = min(backoff * 2, 30.0)

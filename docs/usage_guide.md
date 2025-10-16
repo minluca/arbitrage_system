@@ -74,17 +74,17 @@ python python/main.py
 **Expected output:**
 
 ```plaintext
-2025-10-08 23:38:20 - INFO - Inizio script...
-2025-10-08 23:38:20 - INFO - Snapshot Binance salvato (147 record)
-2025-10-08 23:38:20 - INFO - Snapshot OKX salvato (132 record)
-2025-10-08 23:38:20 - INFO - Snapshot Bybit salvato (98 record)
-2025-10-08 23:38:20 - INFO - [Binance] Avvio WS con 147 simboli...
-2025-10-08 23:38:20 - INFO - [OKX] Avvio WS con 132 simboli...
-2025-10-08 23:38:20 - INFO - [Bybit] Avvio WS con 98 simboli...
-[Python Server] In attesa di connessione su 127.0.0.1:5001...
-[Python Server] Connesso da ('127.0.0.1', 52341)
-2025-10-08 23:38:22 - INFO - [Python Server] Invio ponti cross-exchange iniziali...
-2025-10-08 23:38:22 - INFO - [Python Server] Inviati 44 ponti cross-exchange
+2025-10-08 23:38:20 - INFO - Starting script...
+2025-10-08 23:38:20 - INFO - Binance snapshot saved (147 records)
+2025-10-08 23:38:20 - INFO - OKX snapshot saved (132 records)
+2025-10-08 23:38:20 - INFO - Bybit snapshot saved (98 records)
+2025-10-08 23:38:20 - INFO - [Binance] Starting WS with 147 symbols...
+2025-10-08 23:38:20 - INFO - [OKX] Starting WS with 132 symbols...
+2025-10-08 23:38:20 - INFO - [Bybit] Starting WS with 98 symbols...
+[Python Server] Waiting for connection on 127.0.0.1:5001...
+[Python Server] Connected from ('127.0.0.1', 52341)
+2025-10-08 23:38:22 - INFO - [Python Server] Sending initial cross-exchange bridges...
+2025-10-08 23:38:22 - INFO - [Python Server] Sent 44 cross-exchange bridges
 ```
 
 **What's happening:**
@@ -105,15 +105,15 @@ python python/main.py
 **Expected output:**
 
 ```plaintext
-[warm-up] Ignoro arbitraggio per altri 3s @ 23:38:22
-[warm-up] Ignoro arbitraggio per altri 2s @ 23:38:23
-[warm-up] Ignoro arbitraggio per altri 1s @ 23:38:24
---- Nessun arbitraggio tra 23:38:25 e 23:38:26 ---
---- Nessun arbitraggio tra 23:38:26 e 23:38:27 ---
-[2025-10-08 23:38:28] [!] Arbitraggio trovato! Profit = 1.0000673421x | Percorso: USDT_Binance -> BTC_Binance -> BTC_OKX -> USDT_OKX -> USDT_Binance
-=== Arbitraggi trovati @ 23:38:28 => 1 ===
-[2025-10-08 23:38:30] [!] Arbitraggio trovato! Profit = 1.0001234567x | Percorso: ETH_Binance -> USDT_Binance -> USDT_OKX -> ETH_OKX -> ETH_Binance
-=== Arbitraggi trovati @ 23:38:30 => 1 ===
+[warm-up] Ignoring arbitrage for another 3s @ 23:38:22
+[warm-up] Ignoring arbitrage for another 2s @ 23:38:23
+[warm-up] Ignoring arbitrage for another 1s @ 23:38:24
+--- No arbitrage between 23:38:25 and 23:38:26 ---
+--- No arbitrage between 23:38:26 and 23:38:27 ---
+[2025-10-08 23:38:28] [!] Arbitrage found! Profit = 1.0000673421x | Path: USDT_Binance -> BTC_Binance -> BTC_OKX -> USDT_OKX -> USDT_Binance
+=== Arbitrages found @ 23:38:28 => 1 ===
+[2025-10-08 23:38:30] [!] Arbitrage found! Profit = 1.0001234567x | Path: ETH_Binance -> USDT_Binance -> USDT_OKX -> ETH_OKX -> ETH_Binance
+=== Arbitrages found @ 23:38:30 => 1 ===
 ```
 
 **What's happening:**
@@ -130,7 +130,7 @@ python python/main.py
 Press **Ctrl+C** in either terminal to gracefully shut down:
 
 ```plaintext
-2025-10-08 23:40:15 - INFO - Terminazione manuale con CTRL+C
+2025-10-08 23:40:15 - INFO - Manual termination with CTRL+C
 ```
 
 ---
@@ -356,7 +356,7 @@ Connection failed or recv error
 **Solution 1**: Ensure correct startup order
 
 1. **First**: Start Python server (`python python/main.py`)
-2. Wait for: `[Python Server] In attesa di connessione su 127.0.0.1:5001...`
+2. Wait for: `[Python Server] Waiting for connection on 127.0.0.1:5001...`
 3. **Then**: Start C++ client (`.\cpp\build\arbitrage_detector.exe`)
 
 **Solution 2**: Check firewall settings
@@ -600,7 +600,7 @@ This means:
 **Format**:
 
 ```plaintext
-[2025-10-08 23:38:28] [!] Arbitraggio trovato! Profit = 1.0000673421x | Percorso: USDT_Binance -> BTC_Binance -> BTC_OKX -> USDT_OKX -> USDT_Binance
+[2025-10-08 23:38:28] [!] Arbitrage found! Profit = 1.0000673421x | Path: USDT_Binance -> BTC_Binance -> BTC_OKX -> USDT_OKX -> USDT_Binance
 ```
 
 **Components**:

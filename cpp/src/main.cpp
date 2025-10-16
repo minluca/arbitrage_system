@@ -4,11 +4,11 @@
 #include <limits>
 
 int main() {
-    std::cout << "=== Sistema di Rilevamento Arbitraggio ===\n";
-    std::cout << "1. Tutte le sorgenti\n";
-    std::cout << "2. Sorgente unica\n";
-    std::cout << "3. Benchmark (confronto performance)\n";
-    std::cout << "Scelta: ";
+    std::cout << "=== Arbitrage Detection System ===\n";
+    std::cout << "1. All sources\n";
+    std::cout << "2. Single source\n";
+    std::cout << "3. Benchmark (performance comparison)\n";
+    std::cout << "Choice: ";
 
     int mode = 0;
     while (true) {
@@ -16,7 +16,7 @@ int main() {
         if (std::cin.fail() || (mode < 1 || mode > 3)) {
             std::cin.clear();
             std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-            std::cout << "Scelta non valida. Inserisci 1, 2 o 3: ";
+            std::cout << "Invalid choice. Enter 1, 2 or 3: ";
         } else break;
     }
     std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
@@ -24,12 +24,12 @@ int main() {
     Socket::Client client("127.0.0.1", 5001);
     Graph g;
 
-    std::cout << "\n[INFO] Modalità selezionata: ";
-    if (mode == 1) std::cout << "Classica\n";
-    else if (mode == 2) std::cout << "Super-sorgente\n";
+    std::cout << "\n[INFO] Selected mode: ";
+    if (mode == 1) std::cout << "Classic\n";
+    else if (mode == 2) std::cout << "Super-source\n";
     else std::cout << "Benchmark\n";
-    
-    std::cout << "[INFO] Attendo dati dal server Python...\n"
+
+    std::cout << "[INFO] Waiting for data from Python server...\n"
               << "--------------------------------------------\n";
 
     while (true) {

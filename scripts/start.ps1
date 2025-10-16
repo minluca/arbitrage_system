@@ -167,28 +167,28 @@ try {
 }
 
 Write-Host "`n========================================" -ForegroundColor Green
-Write-Host "  SISTEMA AVVIATO CON SUCCESSO!" -ForegroundColor Green
+Write-Host "  SYSTEM STARTED SUCCESSFULLY!" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Green
 Write-Host ""
-Write-Host "Due finestre aperte:" -ForegroundColor Cyan
+Write-Host "Two windows opened:" -ForegroundColor Cyan
 Write-Host "  1. Python Server  (PID: $($pythonProcess.Id))" -ForegroundColor White
 Write-Host "  2. C++ Detector   (PID: $($cppProcess.Id))" -ForegroundColor White
 Write-Host ""
-Write-Host "Per fermare il sistema:" -ForegroundColor Yellow
-Write-Host "  - Premi CTRL+C in entrambe le finestre, oppure" -ForegroundColor Yellow
-Write-Host "  - Chiudi entrambe le finestre PowerShell" -ForegroundColor Yellow
+Write-Host "To stop the system:" -ForegroundColor Yellow
+Write-Host "  - Press CTRL+C in both windows, or" -ForegroundColor Yellow
+Write-Host "  - Close both PowerShell windows" -ForegroundColor Yellow
 Write-Host ""
-Write-Host "Monitoraggio:" -ForegroundColor Cyan
-Write-Host "  - Finestra Python: mostra WebSocket streaming e connessioni" -ForegroundColor White
-Write-Host "  - Finestra C++: mostra rilevamento arbitraggi in tempo reale" -ForegroundColor White
+Write-Host "Monitoring:" -ForegroundColor Cyan
+Write-Host "  - Python window: shows WebSocket streaming and connections" -ForegroundColor White
+Write-Host "  - C++ window: shows real-time arbitrage detection" -ForegroundColor White
 Write-Host ""
-Write-Host "Output salvato in:" -ForegroundColor Cyan
+Write-Host "Output saved in:" -ForegroundColor Cyan
 Write-Host "  - output/snapshots/Initial_Snapshot_Binance.csv" -ForegroundColor White
 Write-Host "  - output/snapshots/Initial_Snapshot_OKX.csv" -ForegroundColor White
 Write-Host ""
 Write-Host "========================================`n" -ForegroundColor Green
 
 # Keep this window open to show the success message
-Write-Host "Questo script puo' essere chiuso in sicurezza." -ForegroundColor Gray
-Write-Host "Le finestre Python e C++ continueranno a funzionare." -ForegroundColor Gray
-Read-Host "`nPremi Enter per chiudere questo script"
+Write-Host "This script can be safely closed." -ForegroundColor Gray
+Write-Host "The Python and C++ windows will continue to run." -ForegroundColor Gray
+Read-Host "`nPress Enter to close this script"

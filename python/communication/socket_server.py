@@ -14,14 +14,14 @@ def _send_message(conn, data: dict):
 
 
 async def send_initial_bridges(conn, assets: list):
-    logging.info("[Python Server] Invio ponti cross-exchange iniziali...")
+    logging.info("[Python Server] Sending initial cross-exchange bridges...")
     
     bridges = get_all_cross_exchange_bridges(assets)
         
     for bridge in bridges:
         _send_message(conn, bridge)
     
-    logging.info(f"[Python Server] Inviati {len(bridges)} ponti cross-exchange")
+    logging.info(f"[Python Server] Sent {len(bridges)} cross-exchange bridges")
 
 async def socket_consumer(q: asyncio.Queue, common_assets: list = None):
     if common_assets is None:
@@ -33,9 +33,9 @@ async def socket_consumer(q: asyncio.Queue, common_assets: list = None):
     s.bind((HOST, PORT))
     s.listen(1)
 
-    print(f"[Python Server] In attesa di connessione su {HOST}:{PORT}...")
+    print(f"[Python Server] Waiting for connection on {HOST}:{PORT}...")
     conn, addr = s.accept()
-    print(f"[Python Server] Connesso da {addr}")
+    print(f"[Python Server] Connected from {addr}")
 
     try:
         await send_initial_bridges(conn, common_assets)
@@ -45,12 +45,12 @@ async def socket_consumer(q: asyncio.Queue, common_assets: list = None):
             
             _send_message(conn, update)
             
-            logging.debug(f"[Python Server] Inviato: {update['base']} -> {update['quote']} @ {update['price']} ({update['exchange']})")
+            logging.debug(f"[Python Server] Sent: {update['base']} -> {update['quote']} @ {update['price']} ({update['exchange']})")
             
             q.task_done()
 
     except Exception as e:
-        logging.error(f"[Python Server] Errore: {e}")
+        logging.error(f"[Python Server] Error: {e}")
     finally:
         conn.close()
         s.close()

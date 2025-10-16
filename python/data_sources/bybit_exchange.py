@@ -47,7 +47,7 @@ class BybitExchange(ExchangeBase):
     async def stream_ws(self, updates_q, symbols):
         symbols = [s for s in (symbols or []) if isinstance(s, str) and s.strip()]
         if not symbols:
-            logging.warning("[Bybit] Nessun simbolo da seguire.")
+            logging.warning("[Bybit] No symbols to follow.")
             return
 
         url = "wss://stream.bybit.com/v5/public/spot"
@@ -61,26 +61,26 @@ class BybitExchange(ExchangeBase):
                 "op": "subscribe",
                 "args": batch
             })
-        logging.info(f"[Bybit] Preparazione {len(sub_messages)} sottoscrizioni per {len(ticker_args)} ticker")
+        logging.info(f"[Bybit] Preparing {len(sub_messages)} subscriptions for {len(ticker_args)} tickers")
 
         backoff = 1.0
         msg_count = 0
         while True:
             try:
-                logging.info(f"[Bybit] Connessione WS: {url}")
+                logging.info(f"[Bybit] WS connection: {url}")
                 async with websockets.connect(
                     url,
                     ping_interval=20,
                     ping_timeout=20,
                     max_size=None
                 ) as ws:
-                    logging.info(f"[Bybit] Connesso.")
+                    logging.info(f"[Bybit] Connected.")
                     backoff = 1.0
 
                     for sub_msg in sub_messages:
                         await ws.send(json.dumps(sub_msg))
                         await asyncio.sleep(0.1)
-                    logging.info(f"[Bybit] {len(sub_messages)} messaggi di sottoscrizione inviati.")
+                    logging.info(f"[Bybit] {len(sub_messages)} subscription messages sent.")
 
                     async for raw in ws:
                         try:
@@ -90,13 +90,13 @@ class BybitExchange(ExchangeBase):
                                 await updates_q.put(update)
                                 msg_count += 1
                                 if msg_count % 500 == 0:
-                                    logging.info(f"[Bybit] Stream attivo, processati {msg_count} messaggi.")
+                                    logging.info(f"[Bybit] Stream active, processed {msg_count} messages.")
                         except Exception as parse_err:
                             logging.debug(f"[Bybit] Parse skip: {parse_err}")
             except asyncio.CancelledError:
-                logging.info(f"[Bybit] Task cancellato, chiusura producer...")
+                logging.info(f"[Bybit] Task cancelled, closing producer...")
                 raise
             except Exception as e:
-                logging.warning(f"[Bybit] Errore WS: {e} → retry in {backoff:.1f}s")
+                logging.warning(f"[Bybit] WS error: {e} → retry in {backoff:.1f}s")
                 await asyncio.sleep(backoff)
                 backoff = min(backoff * 2, 30.0)

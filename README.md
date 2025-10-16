@@ -228,11 +228,11 @@ Runtime logs in `output/logs/`:
 Real-time arbitrage detection:
 
 ```plaintext
-[2025-10-08 23:30:03] [!] Arbitraggio trovato! 
+[2025-10-08 23:30:03] [!] Arbitrage found!
 Profit = 1.0073x (0.73%)
-Percorso: USDT_Binance -> BTC_Binance -> BTC_OKX -> USDT_OKX -> USDT_Binance
+Path: USDT_Binance -> BTC_Binance -> BTC_OKX -> USDT_OKX -> USDT_Binance
 
-=== Arbitraggi trovati @ 23:30:03 => 1 ===
+=== Arbitrages found @ 23:30:03 => 1 ===
 ```
 
 ## Performance

@@ -20,21 +20,21 @@ double Graph::addOrUpdateEdge(std::string s, std::string d, double p,
                               const std::string& sym)
 {
     if (!std::isfinite(p) || p <= 0.0) {
-        std::cerr << "[warn] addOrUpdateEdge: prezzo non valido (p=" << p
-                  << ") per " << s << "->" << d << " exch=" << exch << " sym=" << sym << "\n";
+        std::cerr << "[warn] addOrUpdateEdge: invalid price (p=" << p
+                  << ") for " << s << "->" << d << " exch=" << exch << " sym=" << sym << "\n";
         return std::numeric_limits<double>::quiet_NaN();
     }
     
     if (exch == "Cross") {
         if (std::fabs(p - 1.0) > 1e-9) {
-            std::cerr << "[error] addOrUpdateEdge: ponte cross-exchange con price != 1.0 (p=" << p
-                      << ") per " << s << "->" << d << " - RIFIUTATO\n";
+            std::cerr << "[error] addOrUpdateEdge: cross-exchange bridge with price != 1.0 (p=" << p
+                      << ") for " << s << "->" << d << " - REJECTED\n";
             return std::numeric_limits<double>::quiet_NaN();
         }
     } else {
         if (p < 1e-8 || p > 1e8) {
-            std::cerr << "[error] addOrUpdateEdge: prezzo ESTREMO fuori range (p=" << p
-                      << ") per " << s << "->" << d << " - RIFIUTATO\n";
+            std::cerr << "[error] addOrUpdateEdge: EXTREME price out of range (p=" << p
+                      << ") for " << s << "->" << d << " - REJECTED\n";
             return std::numeric_limits<double>::quiet_NaN();
         }
                 
@@ -51,8 +51,8 @@ double Graph::addOrUpdateEdge(std::string s, std::string d, double p,
         
         if (isStablePair) {
             if (p < 0.99 || p > 1.01) {
-                std::cerr << "[warn] addOrUpdateEdge: coppia stablecoin con price anomalo (p=" << p
-                          << ") per " << s << "->" << d << " - potenziale errore dati\n";
+                std::cerr << "[warn] addOrUpdateEdge: stablecoin pair with anomalous price (p=" << p
+                          << ") for " << s << "->" << d << " - potential data error\n";
             }
         }
     }
@@ -62,8 +62,8 @@ double Graph::addOrUpdateEdge(std::string s, std::string d, double p,
 
     double w = -std::log(p);
     if (!std::isfinite(w)) {
-        std::cerr << "[warn] addOrUpdateEdge: peso non finito per p=" << p
-                  << " su " << s << "->" << d << "\n";
+        std::cerr << "[warn] addOrUpdateEdge: non-finite weight for p=" << p
+                  << " on " << s << "->" << d << "\n";
         return std::numeric_limits<double>::quiet_NaN();
     }
 
@@ -110,7 +110,7 @@ double Graph::addOrUpdateEdge(std::string s, std::string d, double p,
 void Graph::printAllEdges() {
     for (auto& e : edges) {
         std::cout << nodeNames[e.source] << " -> " << nodeNames[e.destination]
-                  << " ha peso = " << e.weight << std::endl;
+                  << " has weight = " << e.weight << std::endl;
     }
 }
 
@@ -143,7 +143,7 @@ void Graph::processMessage(std::string msg) {
         addOrUpdateEdge(source, destination, price, exchange, symbol);
         
     } catch (std::exception& e) {
-        std::cerr << "[Graph] Errore processMessage: " << e.what() << std::endl;
+        std::cerr << "[Graph] processMessage error: " << e.what() << std::endl;
     }
 }
 
@@ -236,7 +236,7 @@ void Graph::findArbitrage() {
     if (nowEpoch - startEpoch < WARMUP_SECONDS) {
         if (nowEpoch != lastWarnedSec) {
             std::tm tm = *std::localtime(&nowEpoch);
-            std::cout << "[warm-up] Ignoro arbitraggio per altri "
+            std::cout << "[warm-up] Ignoring arbitrage for another "
                       << (WARMUP_SECONDS - (nowEpoch - startEpoch))
                       << "s @ " << std::put_time(&tm, "%H:%M:%S") << std::endl;
             lastWarnedSec = nowEpoch;
@@ -253,13 +253,13 @@ void Graph::findArbitrage() {
     if (secNow != lastSecond) {
         if (foundThisSecond == 0) {
             std::tm t = *std::localtime(&lastSecond);
-            std::cout << "--- Nessun arbitraggio tra "
-                      << std::put_time(&t, "%H:%M:%S") << " e "
+            std::cout << "--- No arbitrage between "
+                      << std::put_time(&t, "%H:%M:%S") << " and "
                       << std::put_time(std::localtime(&secNow), "%H:%M:%S")
                       << " ---\n";
         } else {
             std::tm t = *std::localtime(&lastSecond);
-            std::cout << "=== Arbitraggi trovati @ " << std::put_time(&t, "%H:%M:%S")
+            std::cout << "=== Arbitrages found @ " << std::put_time(&t, "%H:%M:%S")
                       << " => " << foundThisSecond << " ===\n\n";
         }
         foundThisSecond = 0;
@@ -362,8 +362,8 @@ void Graph::findArbitrage() {
                 pss << std::fixed << std::setprecision(10) << profit;
 
                 std::cout << "[" << std::put_time(&ts_tm, "%Y-%m-%d %H:%M:%S") << "] "
-                          << "[!] Arbitraggio trovato! Profit = " << pss.str()
-                          << "x | Percorso: " << path.str() << "\n";
+                          << "[!] Arbitrage found! Profit = " << pss.str()
+                          << "x | Path: " << path.str() << "\n";
 
                 foundThisSecond++;
             }
@@ -372,9 +372,9 @@ void Graph::findArbitrage() {
 }
 
 void Graph::printGraphSummary(int maxEdgesToShow) {
-    std::cout << "\n=== STATO ATTUALE DEL GRAFO ===\n";
-    std::cout << "Nodi totali: " << nodeNames.size()
-              << "\nArchi totali: " << edges.size() << std::endl;
+    std::cout << "\n=== CURRENT GRAPH STATE ===\n";
+    std::cout << "Total nodes: " << nodeNames.size()
+              << "\nTotal edges: " << edges.size() << std::endl;
 
     int countBinance = 0, countOKX = 0, countCross = 0;
     for (const auto& e : edges) {
@@ -388,11 +388,11 @@ void Graph::printGraphSummary(int maxEdgesToShow) {
             countBinance++;
     }
 
-    std::cout << "  Archi Binance: " << countBinance
-              << "\n  Archi OKX:     " << countOKX
-              << "\n  Archi Cross:   " << countCross << std::endl;
+    std::cout << "  Binance edges: " << countBinance
+              << "\n  OKX edges:     " << countOKX
+              << "\n  Cross edges:   " << countCross << std::endl;
 
-    std::cout << "\n--- Elenco (max " << maxEdgesToShow << ") ---\n";
+    std::cout << "\n--- List (max " << maxEdgesToShow << ") ---\n";
     int shown = 0;
     for (const auto& e : edges) {
         std::cout << nodeNames[e.source] << " -> " << nodeNames[e.destination]
@@ -438,13 +438,13 @@ void Graph::findArbitrageSuperSource() {
     if (secNow != lastSecond) {
         if (foundThisSecond == 0) {
             std::tm t = *std::localtime(&lastSecond);
-            std::cout << "[SuperSource] --- Nessun arbitraggio tra "
-                      << std::put_time(&t, "%H:%M:%S") << " e "
+            std::cout << "[SuperSource] --- No arbitrage between "
+                      << std::put_time(&t, "%H:%M:%S") << " and "
                       << std::put_time(std::localtime(&secNow), "%H:%M:%S")
                       << " ---\n";
         } else {
             std::tm t = *std::localtime(&lastSecond);
-            std::cout << "[SuperSource] === Arbitraggi trovati @ " << std::put_time(&t, "%H:%M:%S")
+            std::cout << "[SuperSource] === Arbitrages found @ " << std::put_time(&t, "%H:%M:%S")
                       << " => " << foundThisSecond << " ===\n\n";
         }
         foundThisSecond = 0;
@@ -546,8 +546,8 @@ void Graph::findArbitrageSuperSource() {
             pss << std::fixed << std::setprecision(10) << profit;
 
             std::cout << "[SuperSource] [" << std::put_time(&ts_tm, "%Y-%m-%d %H:%M:%S") << "] "
-                      << "[!] Arbitraggio trovato! Profit = " << pss.str()
-                      << "x | Percorso: " << path.str() << "\n";
+                      << "[!] Arbitrage found! Profit = " << pss.str()
+                      << "x | Path: " << path.str() << "\n";
 
             foundThisSecond++;
         }
