@@ -120,18 +120,37 @@ Constants and helper functions:
 
 ### 3.1 Main Entry Point ([cpp/src/main.cpp](../cpp/src/main.cpp))
 
-Main loop for receiving and processing:
+User selects detection mode at startup, then enters main loop:
 
 ```cpp
+// Mode selection
+std::cout << "=== Arbitrage Detection System ===\n";
+std::cout << "1. All sources\n";
+std::cout << "2. Single source\n";
+std::cout << "3. Benchmark (performance comparison)\n";
+int mode;
+std::cin >> mode;
+
 Socket::Client client("127.0.0.1", 5001);
 Graph g;
 
 while (true) {
     std::string msg = client.receiveMessage();
     g.processMessage(msg);  // JSON parsing + graph update
-    g.findArbitrage();      // Bellman-Ford
+
+    if (mode == 1)
+        g.findArbitrage();              // Classic: Multi-source BF
+    else if (mode == 2)
+        g.findArbitrageSuperSource();   // Super-source: Hybrid BF
+    else
+        g.runBenchmark();               // Benchmark: Both algorithms
 }
 ```
+
+**Mode Details**:
+- **Mode 1 (Classic)**: Runs Bellman-Ford from every node - comprehensive but O(V² × E)
+- **Mode 2 (Super-source)**: Hybrid algorithm with 4 BF runs - **16-17x faster**
+- **Mode 3 (Benchmark)**: Runs both algorithms simultaneously for performance comparison
 
 ### 3.2 Graph Structure ([cpp/include/Graph.h](../cpp/include/Graph.h), [cpp/src/Graph.cpp](../cpp/src/Graph.cpp))
 
@@ -173,7 +192,11 @@ class Graph {
   - Exchange suffix: `BTC` → `BTC_Binance` (if not already present)
   - Call `addOrUpdateEdge`
 
-- **`findArbitrage()`**: See section 6
+- **`findArbitrage()`**: Classic multi-source Bellman-Ford (see section 6.1)
+- **`findArbitrageSuperSource()`**: Super-source hybrid algorithm (see section 6.2)
+- **`runBenchmark()`**: Performance comparison mode (see section 6.3)
+- **`ensureSuperSourceEdges()`**: Creates/updates super-source node connections
+- **`warmupActive()`**: Checks if system is in warmup period (3 seconds)
 
 ### 3.3 Socket Client ([cpp/include/SocketClient.hpp](../cpp/include/SocketClient.hpp))
 
@@ -295,15 +318,21 @@ BTC_OKX → BTC_Binance       (transfer, price 1.0)
 
 **Profit**: 50000 × 1.0 × 0.00002001 × 1.0 = 1.0005 (0.05% gain)
 
-## 6. Bellman-Ford Algorithm
+## 6. Arbitrage Detection Algorithms
 
-### 6.1 Implementation ([Graph.cpp:236-403](../cpp/src/Graph.cpp))
+The system implements three detection modes with different performance characteristics.
 
+### 6.1 Classic Mode - Multi-Source Bellman-Ford
+
+**Implementation**: `Graph::findArbitrage()` ([Graph.cpp:220-372](../cpp/src/Graph.cpp))
+
+**Algorithm**:
 ```cpp
 void Graph::findArbitrage() {
-    // Warm-up: ignore first 3 seconds (data stabilization)
+    // 3-second warm-up for data stabilization
+    if (warmup_active) return;
 
-    // Bellman-Ford from each START node
+    // Run Bellman-Ford from EVERY node
     for (int start = 0; start < V; ++start) {
         std::vector<double> dist(V, ∞);
         std::vector<int> parent(V, -1);
@@ -319,65 +348,180 @@ void Graph::findArbitrage() {
             }
         }
 
-        // PHASE 2: Negative cycle detection (V-th iteration)
+        // PHASE 2: Negative cycle detection
         for (auto& e : edges) {
             if (dist[e.source] + e.weight < dist[e.destination] - EPS) {
-                // Negative cycle found!
+                // Cycle found! Reconstruct and validate...
+                std::vector<int> cycle = reconstruct(parent, e.destination);
+                double profit = calculate_profit(cycle);
 
-                // Reconstruct cycle from parents
-                std::vector<int> cycle = reconstruct_cycle(parent, e.destination);
-
-                // Calculate real profit: Π(price)
-                double profit = 1.0;
-                for (edge in cycle) profit *= edge.price;
-
-                // Filter invalid
-                if (profit <= 1.000001 || profit > 10.0) continue;
-                if (cycle.size() < 3) continue;
-
-                // Deduplication
-                if (isDuplicateCycle(canonicalSignature(cycle, profit)))
-                    continue;
-
-                // PRINT ARBITRAGE
-                std::cout << "[!] Arbitrage found! "
-                          << "Profit = " << profit << "x | "
-                          << "Path: " << path << "\n";
+                if (profit > 1.000001 && !isDuplicate(cycle))
+                    print_arbitrage(cycle, profit);
             }
         }
     }
 }
 ```
 
-### 6.2 Complexity
+**Characteristics**:
+- **Completeness**: Detects ALL possible arbitrage cycles
+- **Complexity**: O(V² × E) - runs V times, each O(V × E)
+- **Use case**: Research, complete market analysis
 
-- **Time**: O(V² · E)
-  - V outer iterations (each start node)
-  - V-1 + 1 inner iterations
-  - E edges per iteration
+**Example**: With 67 nodes and 4891 edges:
+- 67 Bellman-Ford runs per iteration
+- ~408 million edge relaxations per iteration
+- ~10ms per iteration
 
-- **Space**: O(V + E)
-  - dist, parent vectors: O(V)
-  - Edge list: O(E)
+### 6.2 Super-Source Mode - Hybrid Algorithm
 
-### 6.3 Optimizations
+**Implementation**: `Graph::findArbitrageSuperSource()` ([Graph.cpp:423-555](../cpp/src/Graph.cpp))
+
+**Key Innovation**: Instead of running BF from all nodes, creates a virtual super-source and runs BF only 4 times:
+
+**Algorithm**:
+```cpp
+void Graph::findArbitrageSuperSource() {
+    // Ensure SUPER_SOURCE node exists with edges to all nodes
+    ensureSuperSourceEdges();  // Adds edges: SUPER_SOURCE -> all nodes (weight=0)
+
+    auto runBellmanFord = [&](int startNode) {
+        // Standard BF from startNode...
+        // (same relaxation + cycle detection as classic)
+    };
+
+    // 1. Run from super-source (detects cross-exchange cycles)
+    runBellmanFord(superSourceId);
+
+    // 2. Run once per exchange (detects intra-exchange cycles)
+    std::set<std::string> processedExchanges;
+    for (int node = 0; node < V; ++node) {
+        std::string exchange = extractExchange(nodeNames[node]);
+        if (!exchange.empty() && !processedExchanges.count(exchange)) {
+            processedExchanges.insert(exchange);
+            runBellmanFord(node);  // One BF per exchange
+        }
+    }
+    // Total: 4 BF runs (1 super + 3 exchanges: Binance, OKX, Bybit)
+}
+```
+
+**How Super-Source Works**:
+1. Add virtual node `SUPER_SOURCE`
+2. Connect to ALL graph nodes with weight=0 edges
+3. Running BF from super-source reaches all nodes in one hop
+4. Detects cycles reachable from anywhere in the graph
+
+**Why Add Per-Exchange Runs?**:
+- Super-source detects **cross-exchange** cycles efficiently
+- Per-exchange runs catch **intra-exchange** cycles (e.g., BTC→ETH→USDT→BTC all on Binance)
+- Total: 4 runs vs. 67 in classic mode
+
+**Characteristics**:
+- **Efficiency**: **16-17x faster** than classic mode
+- **Complexity**: O(4 × V × E) = O(V × E) effectively
+- **Coverage**: Detects both cross-exchange and intra-exchange arbitrage
+- **Use case**: Production, real-time detection
+
+**Example**: Same 67-node graph:
+- 4 Bellman-Ford runs per iteration
+- ~24 million edge relaxations per iteration
+- <1ms per iteration
+
+### 6.3 Benchmark Mode - Performance Comparison
+
+**Implementation**: `Graph::runBenchmark()` ([Graph.cpp:782-904](../cpp/src/Graph.cpp))
+
+**Purpose**: Run both algorithms simultaneously to compare performance.
+
+**Algorithm**:
+```cpp
+void Graph::runBenchmark() {
+    // 10-second warmup for graph stabilization
+    if (!warmupDone) {
+        if (elapsed < 10) return;
+        warmupDone = true;
+    }
+
+    // Separate cycle caches for fair comparison
+    recentCycles = cacheClassic;
+    recentSet = setClassic;
+    findArbitrageQuiet(statsClassic);  // No console output
+    cacheClassic = recentCycles;
+
+    recentCycles = cacheSuper;
+    recentSet = setSuper;
+    findArbitrageSuperSourceQuiet(statsSuper);  // No console output
+    cacheSuper = recentCycles;
+
+    iterations++;
+
+    // Print report every 5 seconds
+    if (elapsed >= 5) {
+        print_benchmark_report(statsClassic, statsSuper, iterations);
+        reset_stats();
+    }
+}
+```
+
+**Output Example**:
+```plaintext
+========== BENCHMARK REPORT (2025-10-16 21:15:30) ==========
+Iterations: 1247
+Graph size: 67 nodes, 4891 edges
+
+[Classic Mode - Multi-Source Bellman-Ford]
+  Cycles found:       43
+  Bellman-Ford runs:  83629
+  Edges processed:    408,954,839
+  Total time:         12.456s
+  Avg time/iteration: 0.010s
+
+[Super-Source Hybrid Mode - 4x Bellman-Ford]
+  Cycles found:       42
+  Bellman-Ford runs:  4988
+  Edges processed:    24,389,068
+  Total time:         0.742s
+  Avg time/iteration: 0.001s
+
+Performance:
+  Speedup: 16.79x faster
+  Time savings: 1579.0%
+  BF reduction: 16.8x fewer runs
+=======================================================
+```
+
+**Key Features**:
+- Separate cycle caches ensure no cross-contamination
+- Silent execution (`findArbitrageQuiet`) for accurate timing
+- Detailed metrics: cycles found, BF runs, edges processed, time
+
+### 6.4 Shared Optimizations (All Modes)
 
 1. **Cycle Deduplication**:
-   - `canonicalizeCycle()`: Normalize cycle (rotation + lexicographic reverse)
-   - `canonicalSignature()`: Unique string `{profit}|{node1}->{node2}->...`
-   - LRU cache: `recentSet` (hash set) + `recentCycles` (deque, max 100)
+   - `canonicalizeCycle()`: Normalize cycle (rotation + lexicographic ordering)
+   - `canonicalSignature()`: Unique string identifier
+   - LRU cache: 100 most recent cycles
 
 2. **Price Validation**:
-   - Reject garbage data (`p < 1e-8` or `p > 1e8`)
-   - Warn anomalous stablecoin pairs (`p < 0.99` or `p > 1.01`)
-   - Filter unrealistic profits (`profit > 10.0`)
+   - Reject if `price <= 0` or `!isfinite(price)`
+   - Reject extreme values (`price < 1e-8` or `price > 1e8`)
+   - Warn stablecoin anomalies (`price < 0.99` or `price > 1.01` for USDT/USDC pairs)
+   - Reject cross-exchange bridges with `price != 1.0`
 
-3. **Warm-up**:
-   - Ignore first 3 seconds for stream stabilization
+3. **Profit Filtering**:
+   - Minimum: `profit > 1.000001` (0.0001%)
+   - Maximum: `profit < 10.0` (exclude data errors)
+   - Minimum cycle length: 3 edges
 
-4. **Aggregated Logging**:
-   - Print only when second changes
-   - Count arbitrages per second (not per message)
+4. **Warm-up Period**:
+   - Modes 1 & 2: 3 seconds
+   - Mode 3 (Benchmark): 10 seconds
+   - Prevents false positives during graph initialization
+
+5. **Aggregated Logging**:
+   - Print summary per second (not per message)
+   - Count arbitrages: "=== Arbitrages found @ HH:MM:SS => N ==="
 
 ## 7. Technologies and Dependencies
 

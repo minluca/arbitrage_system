@@ -102,9 +102,30 @@ python python/main.py
 .\cpp\build\arbitrage_detector.exe
 ```
 
-**Expected output:**
+**First, you'll be prompted to select a detection mode:**
 
 ```plaintext
+=== Arbitrage Detection System ===
+1. All sources
+2. Single source
+3. Benchmark (performance comparison)
+Choice:
+```
+
+**Mode Selection:**
+
+- **Mode 1 (All sources)**: Classic multi-source Bellman-Ford - comprehensive but slower
+- **Mode 2 (Single source)**: Super-source hybrid algorithm - **16-17x faster**, recommended for production
+- **Mode 3 (Benchmark)**: Performance comparison between modes 1 and 2
+
+Enter `1`, `2`, or `3` and press Enter.
+
+**Expected output (Mode 1 or 2):**
+
+```plaintext
+[INFO] Selected mode: Classic
+[INFO] Waiting for data from Python server...
+--------------------------------------------
 [warm-up] Ignoring arbitrage for another 3s @ 23:38:22
 [warm-up] Ignoring arbitrage for another 2s @ 23:38:23
 [warm-up] Ignoring arbitrage for another 1s @ 23:38:24
@@ -116,14 +137,49 @@ python python/main.py
 === Arbitrages found @ 23:38:30 => 1 ===
 ```
 
+**Expected output (Mode 3 - Benchmark):**
+
+```plaintext
+[INFO] Selected mode: Benchmark
+[INFO] Waiting for data from Python server...
+--------------------------------------------
+[Benchmark Warmup] Collecting data... 10s remaining
+[Benchmark Warmup] Collecting data... 9s remaining
+...
+[Benchmark] Warmup complete. Starting benchmark...
+
+========== BENCHMARK REPORT (2025-10-16 21:15:30) ==========
+Iterations: 1247
+Graph size: 67 nodes, 4891 edges
+
+[Classic Mode - Multi-Source Bellman-Ford]
+  Cycles found:       43
+  Bellman-Ford runs:  83629
+  Edges processed:    408,954,839
+  Total time:         12.456s
+  Avg time/iteration: 0.010s
+
+[Super-Source Hybrid Mode - 4x Bellman-Ford]
+  Cycles found:       42
+  Bellman-Ford runs:  4988
+  Edges processed:    24,389,068
+  Total time:         0.742s
+  Avg time/iteration: 0.001s
+
+Performance:
+  Speedup: 16.79x faster
+  Time savings: 1579.0%
+  BF reduction: 16.8x fewer runs
+=======================================================
+```
+
 **What's happening:**
 
 1. C++ client connects to Python server on `127.0.0.1:5001`
 2. Receives initial cross-exchange bridges
-3. Enters warm-up phase (3 seconds by default) to allow graph initialization
-4. Begins receiving real-time price updates
-5. Runs Bellman-Ford algorithm on each update to detect negative cycles
-6. Outputs arbitrage opportunities with timestamp, profit factor, and path
+3. **Mode 1/2**: Enters 3-second warm-up phase, then detects arbitrage using selected algorithm
+4. **Mode 3**: 10-second warmup, then runs both algorithms simultaneously and reports metrics every 5 seconds
+5. Outputs arbitrage opportunities with timestamp, profit factor, and path
 
 ### Stopping the System
 

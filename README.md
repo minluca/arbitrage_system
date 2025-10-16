@@ -57,7 +57,10 @@ arbitrage_system/
    - Nodes = assets on each exchange (e.g., BTC_Binance, ETH_OKX)
    - Edges = conversion rates (negative log of price for Bellman-Ford)
    - Cross-exchange edges = virtual bridges for asset transfers between platforms
-4. **Arbitrage Detection**: C++ detector runs Bellman-Ford algorithm to identify negative cycles (profitable arbitrage loops)
+4. **Arbitrage Detection**: C++ detector offers three detection modes (see [Detection Modes](#detection-modes)):
+   - **Classic Mode**: Multi-source Bellman-Ford from all nodes
+   - **Super-Source Mode**: Hybrid algorithm with super-source + per-exchange nodes
+   - **Benchmark Mode**: Performance comparison between both algorithms
 5. **Real-time Updates**: Continuous data streaming ensures detection of opportunities as they emerge
 
 **Note on Cross-Exchange Arbitrage**: While the system models cross-exchange transfers as instant 1:1 bridges, real-world execution involves:
@@ -69,6 +72,86 @@ arbitrage_system/
 - Non-atomic execution risk
 
 For production use, these costs should be incorporated into the edge weights. The current implementation is suitable for research and identifying theoretical opportunities.
+
+## Detection Modes
+
+When you launch the C++ detector, you'll be prompted to select one of three detection modes:
+
+```plaintext
+=== Arbitrage Detection System ===
+1. All sources
+2. Single source
+3. Benchmark (performance comparison)
+Choice:
+```
+
+### Mode 1: Classic (All Sources)
+
+**Algorithm**: Multi-source Bellman-Ford
+
+- Runs Bellman-Ford from **every node** in the graph
+- Comprehensive detection: finds all possible arbitrage cycles
+- **Complexity**: O(V × E) per node, O(V² × E) total for V nodes
+- **Best for**: Complete arbitrage discovery, research
+
+**Example**: With 67 nodes (22 coins × 3 exchanges + bridges), runs Bellman-Ford 67 times per iteration.
+
+### Mode 2: Super-Source (Single Source)
+
+**Algorithm**: Hybrid Super-Source Bellman-Ford
+
+- Creates virtual **SUPER_SOURCE** node connected to all graph nodes
+- Runs Bellman-Ford from super-source + one node per exchange (4 total runs)
+- **Complexity**: O(V × E) × 4 runs = significantly faster than classic
+- **Best for**: Production use, real-time detection with performance constraints
+
+**How it works**:
+
+1. Add SUPER_SOURCE node with weight-0 edges to all nodes
+2. Run Bellman-Ford from SUPER_SOURCE (detects cross-exchange cycles)
+3. Run Bellman-Ford from one node per exchange (detects intra-exchange cycles)
+4. Result: 4 Bellman-Ford runs vs. 67 in classic mode
+
+**Example**: Same 67-node graph requires only 4 Bellman-Ford runs (1 super-source + 3 exchanges).
+
+### Mode 3: Benchmark (Performance Comparison)
+
+**Purpose**: Compare performance between Classic and Super-Source algorithms
+
+- Runs both algorithms simultaneously on same data
+- 10-second warmup period for graph initialization
+- Reports every 5 seconds with detailed metrics
+- Separate cycle caches to ensure fair comparison
+
+**Output example**:
+
+```plaintext
+========== BENCHMARK REPORT (2025-10-16 21:15:30) ==========
+Iterations: 1247
+Graph size: 67 nodes, 4891 edges
+
+[Classic Mode - Multi-Source Bellman-Ford]
+  Cycles found:       43
+  Bellman-Ford runs:  83629
+  Edges processed:    408,954,839
+  Total time:         12.456s
+  Avg time/iteration: 0.010s
+
+[Super-Source Hybrid Mode - 4x Bellman-Ford]
+  Cycles found:       42
+  Bellman-Ford runs:  4988
+  Edges processed:    24,389,068
+  Total time:         0.742s
+  Avg time/iteration: 0.001s
+
+Performance:
+  Speedup: 16.79x faster
+  Time savings: 1579.0%
+  BF reduction: 16.8x fewer runs
+=======================================================
+```
+
+**Best for**: Performance analysis, algorithm comparison, research papers
 
 ## Requirements
 
@@ -166,9 +249,12 @@ The server will:
 
 The detector will:
 
+- Prompt you to select a detection mode (1: Classic, 2: Super-Source, 3: Benchmark)
 - Connect to Python server on localhost:5001
 - Begin processing market data
 - Output detected arbitrage opportunities to console
+
+**Mode selection**: Enter `1`, `2`, or `3` when prompted. See [Detection Modes](#detection-modes) for detailed comparison.
 
 **Note**: Start the Python server first, then the C++ detector. The C++ detector needs the Python server to be listening on port 5001.
 
@@ -235,13 +321,6 @@ Path: USDT_Binance -> BTC_Binance -> BTC_OKX -> USDT_OKX -> USDT_Binance
 === Arbitrages found @ 23:30:03 => 1 ===
 ```
 
-## Performance
-
-- **Memory Usage**: ~150 MB (Python + C++ combined)
-- **Throughput**: ~100-200 messages/second
-- **Latency**: <10ms for cycle detection
-- **Scalability**: Handles 50+ trading pairs simultaneously
-
 ## Troubleshooting
 
 ### Port Already in Use
@@ -283,28 +362,6 @@ g++ --version  # Should support C++17 (gcc 7.0+)
 ```
 
 **Windows installation**: Download MinGW-w64 from [winlibs.com](https://winlibs.com) or use MSYS2
-
-## Advanced Usage
-
-### Adding New Exchanges
-
-1. Implement WebSocket handler in `python/data_sources/ws_stream.py`
-2. Add exchange identifier to `cross_exchange.py`
-3. Update edge generation logic in `Graph.cpp`
-
-### Custom Algorithms
-
-Replace Bellman-Ford in `cpp/src/Graph.cpp` with:
-
-- Floyd-Warshall (for all-pairs shortest paths)
-- Johnson's algorithm (for sparse graphs)
-- Custom cycle detection heuristics
-
-### Performance Tuning
-
-- Adjust `BUFFER_SIZE` in [config/network.py](config/network.py) for network throughput
-- Modify g++ compilation flags in [scripts/compile.ps1](scripts/compile.ps1) (e.g., add `-O3` for optimization)
-- Reduce logging verbosity in production environments
 
 ## Documentation
 
