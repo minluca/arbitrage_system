@@ -54,14 +54,26 @@ private:
     int superSourceId = -1;                        // super-source node ID
     size_t lastSuperEdgeAddForNodeCount = 0;       // track when to add new edges
 
+    // === Benchmark Statistics ===
+    struct BenchmarkStats {
+        int cyclesFound = 0;
+        double totalTime = 0.0;
+        int bellmanFordRuns = 0;
+        int edgesProcessed = 0;
+    };
+    BenchmarkStats statsClassic;
+    BenchmarkStats statsSuper;
+
     // === Helper Functions ===
     void ensureSuperSourceEdges();                 // create/update super-source connections
     bool warmupActive();                           // check if in warmup period
+    void findArbitrageQuiet(BenchmarkStats& stats);           // silent classic mode for benchmark
+    void findArbitrageSuperSourceQuiet(BenchmarkStats& stats); // silent super-source for benchmark
 
 public:
     // === Graph Construction ===
     int addNode(std::string name);
-    double addOrUpdateEdge(std::string source, 
+    double addOrUpdateEdge(std::string source,
                            std::string destination,
                            double price,
                            const std::string& exchange = "",
@@ -73,6 +85,7 @@ public:
     // === Arbitrage Detection ===
     void findArbitrage();                          // classic multi-source Bellman-Ford
     void findArbitrageSuperSource();               // super-source single-run Bellman-Ford
+    void runBenchmark();                           // benchmark mode: performance comparison
 
     // === Cycle Utilities ===
     std::vector<int> canonicalizeCycle(const std::vector<int>& cycle) const;

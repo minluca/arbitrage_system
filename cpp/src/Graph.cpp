@@ -19,7 +19,6 @@ double Graph::addOrUpdateEdge(std::string s, std::string d, double p,
                               const std::string& exch,
                               const std::string& sym)
 {
-    
     if (!std::isfinite(p) || p <= 0.0) {
         std::cerr << "[warn] addOrUpdateEdge: prezzo non valido (p=" << p
                   << ") per " << s << "->" << d << " exch=" << exch << " sym=" << sym << "\n";
@@ -33,8 +32,6 @@ double Graph::addOrUpdateEdge(std::string s, std::string d, double p,
             return std::numeric_limits<double>::quiet_NaN();
         }
     } else {
-
-        
         if (p < 1e-8 || p > 1e8) {
             std::cerr << "[error] addOrUpdateEdge: prezzo ESTREMO fuori range (p=" << p
                       << ") per " << s << "->" << d << " - RIFIUTATO\n";
@@ -53,7 +50,6 @@ double Graph::addOrUpdateEdge(std::string s, std::string d, double p,
         }
         
         if (isStablePair) {
-            
             if (p < 0.99 || p > 1.01) {
                 std::cerr << "[warn] addOrUpdateEdge: coppia stablecoin con price anomalo (p=" << p
                           << ") per " << s << "->" << d << " - potenziale errore dati\n";
@@ -71,7 +67,6 @@ double Graph::addOrUpdateEdge(std::string s, std::string d, double p,
         return std::numeric_limits<double>::quiet_NaN();
     }
 
-    
     for (auto& e : edges) {
         if (e.source == u && e.destination == v) {
             e.weight = w;
@@ -82,7 +77,6 @@ double Graph::addOrUpdateEdge(std::string s, std::string d, double p,
         }
     }
 
-    
     Edge e{u, v, w, p, exch, sym};
     edges.push_back(e);
     
@@ -91,11 +85,9 @@ double Graph::addOrUpdateEdge(std::string s, std::string d, double p,
         double w_inv = -std::log(p_inv);
         
         if (std::isfinite(w_inv)) {
-            
             bool inverseExists = false;
             for (auto& edge : edges) {
                 if (edge.source == v && edge.destination == u) {
-                    
                     edge.weight = w_inv;
                     edge.price = p_inv;
                     if (!exch.empty()) edge.exchange = exch;
@@ -104,7 +96,6 @@ double Graph::addOrUpdateEdge(std::string s, std::string d, double p,
                     break;
                 }
             }
-            
             
             if (!inverseExists) {
                 Edge e_inv{v, u, w_inv, p_inv, exch, sym + "_INV"};
@@ -135,16 +126,18 @@ void Graph::processMessage(std::string msg) {
         std::string source = base;
         std::string destination = quote;
         
-        if (source.find("_Binance") == std::string::npos && 
-            source.find("_OKX") == std::string::npos &&
-            source.find("_Cross") == std::string::npos) {
-            source += "_" + exchange;
-        }
-        
-        if (destination.find("_Binance") == std::string::npos && 
-            destination.find("_OKX") == std::string::npos &&
-            destination.find("_Cross") == std::string::npos) {
-            destination += "_" + exchange;
+        if (exchange != "Cross") {
+            if (source.find("_Binance") == std::string::npos && 
+                source.find("_OKX") == std::string::npos &&
+                source.find("_Bybit") == std::string::npos) {
+                source += "_" + exchange;
+            }
+            
+            if (destination.find("_Binance") == std::string::npos && 
+                destination.find("_OKX") == std::string::npos &&
+                destination.find("_Bybit") == std::string::npos) {
+                destination += "_" + exchange;
+            }
         }
 
         addOrUpdateEdge(source, destination, price, exchange, symbol);
@@ -164,13 +157,7 @@ std::string Graph::makeCycleSignature(const std::vector<int>& cycle, double prof
 }
 
 bool Graph::isDuplicateCycle(const std::string& sig) {
-    static size_t duplicateCount = 0;
-    static size_t totalCount = 0;
-
-    totalCount++;
-
     if (recentSet.find(sig) != recentSet.end()) {
-        duplicateCount++;
         return true;
     }
 
@@ -215,10 +202,7 @@ std::vector<int> Graph::canonicalizeCycle(const std::vector<int>& cycle) const {
 std::string Graph::canonicalSignature(const std::vector<int>& cycle, double profit) {
     auto canon = canonicalizeCycle(cycle);
     std::ostringstream oss;
-
     
-    oss << std::fixed << std::setprecision(8) << profit << "|";
-
     for (size_t i = 0; i < canon.size(); ++i) {
         if (i) oss << "->";
         oss << nodeNames[canon[i]];
@@ -239,11 +223,10 @@ void Graph::findArbitrage() {
 
     using clock_wall = std::chrono::system_clock;
 
-    
     static bool warmupInitialized = false;
     static std::time_t startEpoch = 0;
     static std::time_t lastWarnedSec = -1;
-    const int WARMUP_SECONDS = 3; 
+    const int WARMUP_SECONDS = 3;
 
     std::time_t nowEpoch = std::chrono::system_clock::to_time_t(clock_wall::now());
     if (!warmupInitialized) {
@@ -261,13 +244,11 @@ void Graph::findArbitrage() {
         return;
     }
 
-    
     static std::time_t lastSecond = 0;
     static int foundThisSecond = 0;
 
     std::time_t secNow = clock_wall::to_time_t(clock_wall::now());
     if (lastSecond == 0) lastSecond = secNow;
-    
     
     if (secNow != lastSecond) {
         if (foundThisSecond == 0) {
@@ -285,23 +266,19 @@ void Graph::findArbitrage() {
         lastSecond = secNow;
     }
 
-    
     static constexpr double RELAX_EPS = 1e-6;
     static constexpr double PROFIT_MIN_LOCAL = 1.000001;
     static constexpr double PROFIT_MAX_LOCAL = 10.0;
 
-    
     for (int start = 0; start < V; ++start) {
         std::vector<double> dist(V, std::numeric_limits<double>::infinity());
         std::vector<int> parent(V, -1);
         std::vector<int> parentEdge(V, -1);
         dist[start] = 0.0;
 
-        
         for (int i = 0; i < V - 1; ++i) {
             for (int ei = 0; ei < (int)edges.size(); ++ei) {
                 const auto& e = edges[ei];
-                
                 
                 if (dist[e.source] != std::numeric_limits<double>::infinity() &&
                     dist[e.source] + e.weight < dist[e.destination]) {
@@ -312,21 +289,17 @@ void Graph::findArbitrage() {
             }
         }
 
-        
         for (int ei = 0; ei < (int)edges.size(); ++ei) {
             const auto& e = edges[ei];
             
-            
             if (dist[e.source] != std::numeric_limits<double>::infinity() &&
                 dist[e.source] + e.weight < dist[e.destination] - RELAX_EPS) {
-                
                 
                 int v = e.destination;
                 for (int i = 0; i < V; ++i) {
                     v = parent[v];
                 }
 
-                
                 std::vector<int> cycle;
                 int cur = v;
                 do {
@@ -337,7 +310,6 @@ void Graph::findArbitrage() {
                 if (cycle.empty()) continue;
                 std::reverse(cycle.begin(), cycle.end());
 
-                
                 const int n = (int)cycle.size();
                 std::vector<int> cycleEdgeIdx;
                 cycleEdgeIdx.reserve(n);
@@ -358,7 +330,6 @@ void Graph::findArbitrage() {
                 
                 if (!edgesOk) continue;
 
-                
                 double profit = 1.0;
                 for (int pe : cycleEdgeIdx) {
                     double p = edges[pe].price;
@@ -370,17 +341,14 @@ void Graph::findArbitrage() {
                     if (!std::isfinite(profit)) break;
                 }
 
-                
                 if (!std::isfinite(profit)) continue;
                 if (profit <= 0.0 || profit > PROFIT_MAX_LOCAL) continue;
                 if ((int)cycle.size() < MIN_CYCLE_LEN) continue;
                 if (profit < PROFIT_MIN_LOCAL) continue;
 
-                
                 std::string sig = canonicalSignature(cycle, profit);
                 if (isDuplicateCycle(sig)) continue;
 
-                
                 std::ostringstream path;
                 for (int nidx : cycle) {
                     path << nodeNames[nidx] << " -> ";
@@ -583,5 +551,362 @@ void Graph::findArbitrageSuperSource() {
 
             foundThisSecond++;
         }
+    }
+}
+
+void Graph::findArbitrageQuiet(BenchmarkStats& stats) {
+    const int V = static_cast<int>(nodeNames.size());
+    if (V == 0) return;
+
+    static constexpr double RELAX_EPS = 1e-6;
+    static constexpr double PROFIT_MIN_LOCAL = 1.000001;
+    static constexpr double PROFIT_MAX_LOCAL = 10.0;
+
+    for (int start = 0; start < V; ++start) {
+        auto startTime = std::chrono::high_resolution_clock::now();
+        
+        std::vector<double> dist(V, std::numeric_limits<double>::infinity());
+        std::vector<int> parent(V, -1);
+        std::vector<int> parentEdge(V, -1);
+        dist[start] = 0.0;
+
+        stats.bellmanFordRuns++;
+
+        for (int i = 0; i < V - 1; ++i) {
+            for (int ei = 0; ei < (int)edges.size(); ++ei) {
+                const auto& e = edges[ei];
+                stats.edgesProcessed++;
+                
+                if (dist[e.source] != std::numeric_limits<double>::infinity() &&
+                    dist[e.source] + e.weight < dist[e.destination]) {
+                    dist[e.destination] = dist[e.source] + e.weight;
+                    parent[e.destination] = e.source;
+                    parentEdge[e.destination] = ei;
+                }
+            }
+        }
+
+        for (int ei = 0; ei < (int)edges.size(); ++ei) {
+            const auto& e = edges[ei];
+            
+            if (dist[e.source] != std::numeric_limits<double>::infinity() &&
+                dist[e.source] + e.weight < dist[e.destination] - RELAX_EPS) {
+                
+                int v = e.destination;
+                for (int i = 0; i < V; ++i) {
+                    v = parent[v];
+                }
+
+                std::vector<int> cycle;
+                int cur = v;
+                do {
+                    cycle.push_back(cur);
+                    cur = parent[cur];
+                } while (cur != v && cur != -1);
+                
+                if (cycle.empty()) continue;
+                std::reverse(cycle.begin(), cycle.end());
+
+                const int n = (int)cycle.size();
+                std::vector<int> cycleEdgeIdx;
+                cycleEdgeIdx.reserve(n);
+                bool edgesOk = true;
+                
+                for (int i = 0; i < n; ++i) {
+                    int toNode = cycle[(i + 1) % n];
+                    int pe = parentEdge[toNode];
+                    
+                    if (pe < 0 || 
+                        edges[pe].source != cycle[i] || 
+                        edges[pe].destination != toNode) {
+                        edgesOk = false;
+                        break;
+                    }
+                    cycleEdgeIdx.push_back(pe);
+                }
+                
+                if (!edgesOk) continue;
+
+                double profit = 1.0;
+                for (int pe : cycleEdgeIdx) {
+                    double p = edges[pe].price;
+                    if (!std::isfinite(p) || p <= 0.0) {
+                        profit = std::numeric_limits<double>::quiet_NaN();
+                        break;
+                    }
+                    profit *= p;
+                    if (!std::isfinite(profit)) break;
+                }
+
+                if (!std::isfinite(profit)) continue;
+                if (profit <= 0.0 || profit > PROFIT_MAX_LOCAL) continue;
+                if ((int)cycle.size() < MIN_CYCLE_LEN) continue;
+                if (profit < PROFIT_MIN_LOCAL) continue;
+
+                std::string sig = canonicalSignature(cycle, profit);
+                if (isDuplicateCycle(sig)) continue;
+
+                stats.cyclesFound++;
+            }
+        }
+
+        auto endTime = std::chrono::high_resolution_clock::now();
+        stats.totalTime += std::chrono::duration<double>(endTime - startTime).count();
+    }
+}
+
+void Graph::findArbitrageSuperSourceQuiet(BenchmarkStats& stats) {
+    const int V = static_cast<int>(nodeNames.size());
+    if (V == 0) return;
+    
+    ensureSuperSourceEdges();
+    if (superSourceId < 0 || superSourceId >= V) return;
+
+    static constexpr double RELAX_EPS = 1e-6;
+    static constexpr double PROFIT_MIN_LOCAL = 1.000001;
+    static constexpr double PROFIT_MAX_LOCAL = 10.0;
+
+    auto bellmanFord = [&](int startNode) {
+        auto startTime = std::chrono::high_resolution_clock::now();
+        
+        std::vector<double> dist(V, std::numeric_limits<double>::infinity());
+        std::vector<int> parent(V, -1);
+        std::vector<int> parentEdge(V, -1);
+        dist[startNode] = 0.0;
+
+        stats.bellmanFordRuns++;
+
+        for (int i = 0; i < V - 1; ++i) {
+            for (int ei = 0; ei < (int)edges.size(); ++ei) {
+                const auto& e = edges[ei];
+                stats.edgesProcessed++;
+                
+                if (dist[e.source] != std::numeric_limits<double>::infinity() &&
+                    dist[e.source] + e.weight < dist[e.destination]) {
+                    dist[e.destination] = dist[e.source] + e.weight;
+                    parent[e.destination] = e.source;
+                    parentEdge[e.destination] = ei;
+                }
+            }
+        }
+
+        for (int ei = 0; ei < (int)edges.size(); ++ei) {
+            const auto& e = edges[ei];
+            
+            if (dist[e.source] != std::numeric_limits<double>::infinity() &&
+                dist[e.source] + e.weight < dist[e.destination] - RELAX_EPS) {
+                
+                int v = e.destination;
+                for (int i = 0; i < V; ++i) {
+                    v = parent[v];
+                }
+
+                std::vector<int> cycle;
+                int cur = v;
+                do {
+                    cycle.push_back(cur);
+                    cur = parent[cur];
+                } while (cur != v && cur != -1);
+                
+                if (cycle.empty()) continue;
+                std::reverse(cycle.begin(), cycle.end());
+
+                const int n = (int)cycle.size();
+                std::vector<int> cycleEdgeIdx;
+                cycleEdgeIdx.reserve(n);
+                bool edgesOk = true;
+                
+                for (int i = 0; i < n; ++i) {
+                    int toNode = cycle[(i + 1) % n];
+                    int pe = parentEdge[toNode];
+                    
+                    if (pe < 0 || 
+                        edges[pe].source != cycle[i] || 
+                        edges[pe].destination != toNode) {
+                        edgesOk = false;
+                        break;
+                    }
+                    cycleEdgeIdx.push_back(pe);
+                }
+                
+                if (!edgesOk) continue;
+
+                double profit = 1.0;
+                for (int pe : cycleEdgeIdx) {
+                    double p = edges[pe].price;
+                    if (!std::isfinite(p) || p <= 0.0) {
+                        profit = std::numeric_limits<double>::quiet_NaN();
+                        break;
+                    }
+                    profit *= p;
+                    if (!std::isfinite(profit)) break;
+                }
+
+                if (!std::isfinite(profit)) continue;
+                if (profit <= 0.0 || profit > PROFIT_MAX_LOCAL) continue;
+                if ((int)cycle.size() < MIN_CYCLE_LEN) continue;
+                if (profit < PROFIT_MIN_LOCAL) continue;
+
+                std::string sig = canonicalSignature(cycle, profit);
+                if (isDuplicateCycle(sig)) continue;
+
+                stats.cyclesFound++;
+            }
+        }
+
+        auto endTime = std::chrono::high_resolution_clock::now();
+        stats.totalTime += std::chrono::duration<double>(endTime - startTime).count();
+    };
+
+    bellmanFord(superSourceId);
+
+    std::set<std::string> processedExchanges;
+    
+    for (int node = 0; node < V; ++node) {
+        if (node == superSourceId) continue;
+        
+        std::string nodeName = nodeNames[node];
+        std::string exchange = "";
+        
+        if (nodeName.find("_Binance") != std::string::npos) exchange = "Binance";
+        else if (nodeName.find("_OKX") != std::string::npos) exchange = "OKX";
+        else if (nodeName.find("_Bybit") != std::string::npos) exchange = "Bybit";
+        
+        if (exchange.empty() || processedExchanges.count(exchange)) continue;
+        
+        processedExchanges.insert(exchange);
+        bellmanFord(node);
+    }
+}
+
+void Graph::runBenchmark() {
+    using clock_steady = std::chrono::steady_clock;
+    
+    static const int BENCHMARK_WARMUP_SECONDS = 10;
+    static bool warmupDone = false;
+    static auto warmupStart = clock_steady::now();
+    static int lastWarmupSec = -1;
+    
+    if (!warmupDone) {
+        auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(
+            clock_steady::now() - warmupStart).count();
+        
+        if (elapsed != lastWarmupSec) {
+            int remaining = BENCHMARK_WARMUP_SECONDS - (int)elapsed;
+            if (remaining > 0) {
+                std::cout << "[Benchmark Warmup] Collecting data... " 
+                          << remaining << "s remaining\n";
+                lastWarmupSec = (int)elapsed;
+            }
+        }
+        
+        if (elapsed >= BENCHMARK_WARMUP_SECONDS) {
+            warmupDone = true;
+            std::cout << "[Benchmark] Warmup complete. Starting benchmark...\n\n";
+        }
+        return;
+    }
+    
+    if (nodeNames.empty()) return;
+
+    static auto lastPrint = clock_steady::now();
+    static int iterations = 0;
+    
+    static std::deque<std::string> cacheClassic;
+    static std::unordered_set<std::string> setClassic;
+    static const size_t MAX_CACHE = 100;
+    
+    static std::deque<std::string> cacheSuper;
+    static std::unordered_set<std::string> setSuper;
+    
+    auto backupCache = recentCycles;
+    auto backupSet = recentSet;
+    
+    recentCycles = cacheClassic;
+    recentSet = setClassic;
+    
+    findArbitrageQuiet(statsClassic);
+    
+    cacheClassic = recentCycles;
+    setClassic = recentSet;
+    
+    recentCycles = backupCache;
+    recentSet = backupSet;
+    
+    backupCache = recentCycles;
+    backupSet = recentSet;
+    
+    recentCycles = cacheSuper;
+    recentSet = setSuper;
+    
+    findArbitrageSuperSourceQuiet(statsSuper);
+    
+    cacheSuper = recentCycles;
+    setSuper = recentSet;
+    
+    recentCycles = backupCache;
+    recentSet = backupSet;
+    
+    iterations++;
+
+    auto now = clock_steady::now();
+    auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(
+        now - lastPrint).count();
+    
+if (elapsed >= 5) {
+    auto now_time = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+    std::cout << "\n========== BENCHMARK REPORT (" 
+            << std::put_time(std::localtime(&now_time), "%Y-%m-%d %H:%M:%S") 
+            << ") ==========\n";    std::cout << "Iterations: " << iterations << "\n";
+    std::cout << "Graph size: " << nodeNames.size() << " nodes, " 
+              << edges.size() << " edges\n";
+    
+    if (setClassic.size() != setSuper.size()) {
+        std::cout << "Note: Cycle count difference due to microlatency between runs\n";
+        std::cout << "      (price changes between Classic and Super-Source execution)\n";
+    }
+    std::cout << "\n";
+    
+    std::cout << "[Classic Mode - Multi-Source Bellman-Ford]\n";
+    std::cout << "  Cycles found:       " << statsClassic.cyclesFound << "\n";
+    std::cout << "  Bellman-Ford runs:  " << statsClassic.bellmanFordRuns << "\n";
+    std::cout << "  Edges processed:    " << statsClassic.edgesProcessed << "\n";
+    std::cout << "  Total time:         " << std::fixed << std::setprecision(3) 
+              << statsClassic.totalTime << "s\n";
+    std::cout << "  Avg time/iteration: " << std::fixed << std::setprecision(3)
+              << (statsClassic.totalTime / iterations) << "s\n\n";
+    
+    std::cout << "[Super-Source Hybrid Mode - 4x Bellman-Ford] - (1x super-source + 1x per exchange)\n";
+    std::cout << "  Cycles found:       " << statsSuper.cyclesFound << "\n";
+    std::cout << "  Bellman-Ford runs:  " << statsSuper.bellmanFordRuns << "\n";
+    std::cout << "  Edges processed:    " << statsSuper.edgesProcessed << "\n";
+    std::cout << "  Total time:         " << std::fixed << std::setprecision(3) 
+              << statsSuper.totalTime << "s\n";
+    std::cout << "  Avg time/iteration: " << std::fixed << std::setprecision(3)
+              << (statsSuper.totalTime / iterations) << "s\n\n";
+    
+    if (statsSuper.totalTime > 0) {
+        double speedup = statsClassic.totalTime / statsSuper.totalTime;
+        std::cout << "Performance:\n";
+        std::cout << "  Speedup: " << std::fixed << std::setprecision(2) 
+                  << speedup << "x faster\n";
+        std::cout << "  Time savings: " << std::fixed << std::setprecision(1) 
+                  << ((speedup - 1.0) * 100) << "%\n";
+        std::cout << "  BF reduction: " << std::fixed << std::setprecision(1)
+                  << ((double)statsClassic.bellmanFordRuns / statsSuper.bellmanFordRuns) 
+                  << "x fewer runs\n";
+    }
+    
+    std::cout << "=======================================================\n\n";
+    
+    lastPrint = now;
+    iterations = 0;
+    statsClassic = BenchmarkStats();
+    statsSuper = BenchmarkStats();
+    
+    cacheClassic.clear();
+    setClassic.clear();
+    cacheSuper.clear();
+    setSuper.clear();
     }
 }
