@@ -27,3 +27,5 @@ output/debug/*.csv
 # OS
 .DS_Store
 Thumbs.db
+arbitrage_results_20251022_221349_analysis.png
+arbitrage_results_20251022_221349.csv

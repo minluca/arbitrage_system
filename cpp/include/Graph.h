@@ -14,6 +14,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#include <fstream>
 
 // === External Dependencies ===
 #include "json.hpp"
@@ -70,6 +71,13 @@ private:
     void findArbitrageQuiet(BenchmarkStats& stats);           // silent classic mode for benchmark
     void findArbitrageSuperSourceQuiet(BenchmarkStats& stats); // silent super-source for benchmark
 
+    // === CSV Logging ===
+    std::ofstream csvLogger;
+    bool csvLoggingEnabled = false;
+    std::string csvFilename;
+    int totalArbitragesFound = 0;
+    std::chrono::system_clock::time_point sessionStart;
+
 public:
     // === Graph Construction ===
     int addNode(std::string name);
@@ -100,4 +108,9 @@ public:
     // === Diagnostics ===
     void printAllEdges();
     void printGraphSummary(int maxEdgesToShow);
+
+    // === CSV Logging ===
+    void enableCSVLogging(const std::string& filename);
+    void logArbitrageToCSV(const std::vector<int>& cycle, double profit);
+    void disableCSVLogging();
 };

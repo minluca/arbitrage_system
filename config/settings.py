@@ -3,14 +3,14 @@
 COINS = [
     "BTC", "ETH", "BNB", "SOL", "XRP", "DOGE", "ADA", "AVAX", "SHIB", "DOT",
     "LTC", "LINK", "UNI", "BCH", "XLM", "ATOM", "FIL", "XTZ", "VET",
-    "USDT", "USDC", "TUSD"
+    "USDT", "TUSD"
 ]
 
 SYMBOLS = [f"{base}{quote}" for base, quote in product(COINS, COINS) if base != quote]
 
 EXCHANGES = ["Binance", "OKX", "Bybit"]
 
-STABLECOINS = {"USDT", "USDC", "TUSD"}
+STABLECOINS = {"USDT", "TUSD"}
 
 PROFIT_THRESHOLD = 1.00005
 MIN_CYCLE_LENGTH = 3
